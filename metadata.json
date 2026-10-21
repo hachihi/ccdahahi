@@ -1,0 +1,8 @@
+{
+  "name": "Remix Hệ thống Quản lý Chấm công Khuôn mặt Dahahi",
+  "description": "Ứng dụng quản lý kết nối máy chấm công khuôn mặt Dahahi: thêm sửa xóa nhân viên, tải ảnh khuôn mặt, phân quyền user truy cập, xuất nhập CSV, bảng công, dark mode và tài liệu nhà sản xuất đính kèm.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
