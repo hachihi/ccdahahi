@@ -10,11 +10,13 @@ import {
   Settings
 } from 'lucide-react';
 import { DahahiDataService, downloadCsv, pad2 } from '../services/dahahiService';
-import { ConnectionSettings, AttendanceLog, Employee } from '../types/dahahi';
+import { ConnectionSettings, AttendanceLog, Employee, DahahiMachine } from '../types/dahahi';
+import { TimesheetTemplatesView } from './TimesheetTemplatesView';
 
 interface MonthlyReportViewProps {
   logs: AttendanceLog[];
   employees: Employee[];
+  machines?: DahahiMachine[];
   settings: ConnectionSettings;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -22,9 +24,11 @@ interface MonthlyReportViewProps {
 export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
   logs,
   employees,
+  machines = [],
   settings,
   showToast
 }) => {
+  const [reportMode, setReportMode] = useState<'matrix' | 'machine' | 'daily'>('matrix');
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth);
   const [workStartTime, setWorkStartTime] = useState<string>(settings.workStartTime || '08:30');
@@ -68,8 +72,50 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
     showToast(`Đã xuất bảng công tháng ${selectedMonth} ra tệp CSV`, 'success');
   };
 
+  const modeTabs: { id: 'matrix' | 'machine' | 'daily'; label: string }[] = [
+    { id: 'matrix', label: 'Bảng công tổng hợp' },
+    { id: 'machine', label: 'Mẫu 1: Chi tiết theo máy' },
+    { id: 'daily', label: 'Mẫu 2: Chấm công chi tiết' }
+  ];
+
+  const modeBar = (
+    <div className="flex flex-wrap gap-2">
+      {modeTabs.map(t => (
+        <button
+          key={t.id}
+          onClick={() => setReportMode(t.id)}
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition ${
+            reportMode === t.id
+              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-500/20'
+              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (reportMode !== 'matrix') {
+    return (
+      <div className="space-y-4 animate-in fade-in duration-200">
+        {modeBar}
+        <TimesheetTemplatesView
+          template={reportMode}
+          logs={logs}
+          employees={employees}
+          machines={machines}
+          settings={settings}
+          showToast={showToast}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
+      {modeBar}
+
       {/* Filters Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
