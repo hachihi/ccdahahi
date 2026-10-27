@@ -112,6 +112,7 @@ const MainAppContent: React.FC = () => {
           <MonthlyReportView
             logs={logs}
             employees={employees}
+            machines={machines}
             settings={settings}
             showToast={showToast}
           />
