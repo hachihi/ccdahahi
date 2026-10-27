@@ -468,6 +468,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </span>
               </div>
               <div className="flex justify-between">
+                <span>Tự động đồng bộ:</span>
+                {settings.autoSync?.enabled ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Bật ({settings.autoSync.intervalMinutes}p/lần)
+                  </span>
+                ) : (
+                  <span className="text-slate-400 font-medium">Đang tắt</span>
+                )}
+              </div>
+              <div className="flex justify-between">
                 <span>Webhook Checkin:</span>
                 <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
                   Đang hoạt động

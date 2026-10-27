@@ -55,6 +55,11 @@ const MainAppContent: React.FC = () => {
 
   useEffect(() => {
     refreshData();
+    // Auto-refresh state from server every 30s so UI updates when background auto-sync runs
+    const interval = setInterval(() => {
+      refreshData();
+    }, 30000);
+    return () => clearInterval(interval);
   }, [refreshData]);
 
   return (

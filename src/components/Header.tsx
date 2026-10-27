@@ -81,6 +81,23 @@ export const Header: React.FC<HeaderProps> = ({
                     Chưa kết nối máy
                   </span>
                 )}
+                {settings.autoSync?.enabled ? (
+                  <button
+                    onClick={() => setActiveTab('devices')}
+                    className="hidden md:inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-800 dark:bg-teal-950/80 dark:text-teal-300 border border-teal-300 dark:border-teal-800 hover:opacity-85 transition"
+                    title="Nhấp để cấu hình chu kỳ tự động đồng bộ"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping" />
+                    Tự đồng bộ: {settings.autoSync.intervalMinutes}p/lần
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setActiveTab('devices')}
+                    className="hidden md:inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:text-slate-900 transition"
+                  >
+                    Tự đồng bộ: Tắt
+                  </button>
+                )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
                 Hệ thống Quản lý Chấm công & Tải Khuôn mặt Dahahi

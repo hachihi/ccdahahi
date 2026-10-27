@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   HardDrive,
   Wifi,
@@ -14,9 +14,13 @@ import {
   Info,
   Check,
   Radio,
-  Server
+  Server,
+  Clock,
+  Zap,
+  Power,
+  ShieldCheck
 } from 'lucide-react';
-import { DahahiMachine, ConnectionSettings } from '../types/dahahi';
+import { DahahiMachine, ConnectionSettings, AutoSyncConfig } from '../types/dahahi';
 import { useAuth } from '../context/AuthContext';
 import { DahahiDataService } from '../services/dahahiService';
 
@@ -45,6 +49,25 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   const [machineSerial, setMachineSerial] = useState(settings.serial || '');
   const [isConnecting, setIsConnecting] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+
+  // Auto-sync configuration state
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(settings.autoSync?.enabled ?? true);
+  const [autoSyncInterval, setAutoSyncInterval] = useState(settings.autoSync?.intervalMinutes || 5);
+  const [autoSyncLogs, setAutoSyncLogs] = useState(settings.autoSync?.syncLogs ?? true);
+  const [autoSyncHeartbeat, setAutoSyncHeartbeat] = useState(settings.autoSync?.syncHeartbeat ?? true);
+  const [isSavingAutoSync, setIsSavingAutoSync] = useState(false);
+  const [isTriggeringSync, setIsTriggeringSync] = useState(false);
+  const [autoSyncStatus, setAutoSyncStatus] = useState<AutoSyncConfig | undefined>(settings.autoSync);
+
+  useEffect(() => {
+    if (settings.autoSync) {
+      setAutoSyncEnabled(settings.autoSync.enabled ?? true);
+      setAutoSyncInterval(settings.autoSync.intervalMinutes || 5);
+      setAutoSyncLogs(settings.autoSync.syncLogs ?? true);
+      setAutoSyncHeartbeat(settings.autoSync.syncHeartbeat ?? true);
+      setAutoSyncStatus(settings.autoSync);
+    }
+  }, [settings.autoSync]);
 
   // Sync Face state
   const [syncFrom, setSyncFrom] = useState(machines[0]?.MachineBoxId || '');
@@ -128,6 +151,49 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
       showToast('Lỗi kiểm tra: ' + err.message, 'error');
     } finally {
       setIsTesting(false);
+    }
+  };
+
+  // Save Auto-Sync Configuration
+  const handleSaveAutoSync = async () => {
+    setIsSavingAutoSync(true);
+    try {
+      const res = await DahahiDataService.updateAutoSync({
+        enabled: autoSyncEnabled,
+        intervalMinutes: Number(autoSyncInterval),
+        syncLogs: autoSyncLogs,
+        syncHeartbeat: autoSyncHeartbeat
+      });
+      if (res && res.ok) {
+        if (res.autoSync) setAutoSyncStatus(res.autoSync);
+        onRefreshData();
+        showToast(res.message || 'Đã lưu cấu hình tự động đồng bộ định kỳ', 'success');
+      } else {
+        showToast(res?.message || 'Lỗi khi lưu cấu hình đồng bộ', 'error');
+      }
+    } catch (err: any) {
+      showToast('Lỗi lưu cấu hình: ' + err.message, 'error');
+    } finally {
+      setIsSavingAutoSync(false);
+    }
+  };
+
+  // Trigger Immediate Auto-Sync
+  const handleTriggerAutoSyncNow = async () => {
+    setIsTriggeringSync(true);
+    try {
+      const res = await DahahiDataService.triggerAutoSync();
+      if (res && res.ok) {
+        if (res.autoSync) setAutoSyncStatus(res.autoSync);
+        onRefreshData();
+        showToast(res.message || `Đã đồng bộ thành công (+${res.added ?? 0} lượt mới)`, 'success');
+      } else {
+        showToast(res?.message || 'Lỗi khi kích hoạt đồng bộ', 'error');
+      }
+    } catch (err: any) {
+      showToast('Lỗi đồng bộ: ' + err.message, 'error');
+    } finally {
+      setIsTriggeringSync(false);
     }
   };
 
@@ -497,6 +563,195 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncingFaces ? 'animate-spin' : ''}`} />
               Thực hiện sao chép khuôn mặt
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Auto-Sync Periodic Mode Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl ${autoSyncEnabled ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Chế độ Tự Động Đồng Bộ Định Kỳ (Periodic Auto-Sync)
+                </h3>
+                {autoSyncEnabled ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Đang kích hoạt ({autoSyncInterval} phút/lần)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                    Đang tắt
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+                  Đã chuẩn hóa Header (Khắc phục 401 FARE0011)
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Hệ thống tự động tải lịch sử checkin (quẹt mặt) và ping trạng thái thiết bị theo chu kỳ nền mà không cần thao tác tay.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleTriggerAutoSyncNow}
+              disabled={isTriggeringSync || !settings.host}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold transition disabled:opacity-50"
+              title="Kích hoạt chu kỳ đồng bộ ngay lập tức"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isTriggeringSync ? 'animate-spin text-emerald-500' : ''}`} />
+              {isTriggeringSync ? 'Đang đồng bộ...' : 'Đồng bộ ngay'}
+            </button>
+
+            <button
+              onClick={handleSaveAutoSync}
+              disabled={isSavingAutoSync}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-md shadow-emerald-500/20 transition disabled:opacity-50"
+            >
+              <Check className="w-3.5 h-3.5" />
+              {isSavingAutoSync ? 'Đang lưu...' : 'Lưu cấu hình'}
+            </button>
+          </div>
+        </div>
+
+        {/* Configuration Body */}
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-12 gap-5">
+          {/* Controls (7 cols) */}
+          <div className="md:col-span-7 space-y-4">
+            {/* Toggle Enable/Disable */}
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+              <div>
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                  Bật tự động đồng bộ ngầm định kỳ
+                </label>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Tự động gọi API máy Dahahi theo lịch trình nền để cập nhật chấm công mới
+                </span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoSyncEnabled}
+                  onChange={e => setAutoSyncEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-600"></div>
+              </label>
+            </div>
+
+            {/* Select Interval */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Chu kỳ chạy đồng bộ (Thời gian giữa 2 lần)
+              </label>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {[1, 2, 5, 10, 15, 30].map(mins => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => setAutoSyncInterval(mins)}
+                    className={`py-2 px-2 rounded-xl text-xs font-semibold border transition ${
+                      autoSyncInterval === mins
+                        ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                        : 'bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
+                    }`}
+                  >
+                    {mins} phút
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sync Options Checkboxes */}
+            <div className="space-y-2 pt-1">
+              <label className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoSyncLogs}
+                  onChange={e => setAutoSyncLogs(e.target.checked)}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                />
+                <span className="font-medium">
+                  Tự động tải lượt chấm công mới nhất (<code className="font-mono text-emerald-600">/api/facereg/checkinhis</code>)
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoSyncHeartbeat}
+                  onChange={e => setAutoSyncHeartbeat(e.target.checked)}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                />
+                <span className="font-medium">
+                  Tự động kiểm tra trạng thái Online của máy (<code className="font-mono text-emerald-600">/api/faceid/getAllMachine</code>)
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Real-time Status Panel (5 cols) */}
+          <div className="md:col-span-5 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Trạng thái thực tế
+                </span>
+                <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                  autoSyncStatus?.lastSyncStatus === 'success'
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                    : autoSyncStatus?.lastSyncStatus === 'running'
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                    : autoSyncStatus?.lastSyncStatus === 'error'
+                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                    : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    autoSyncStatus?.lastSyncStatus === 'success' ? 'bg-emerald-500' :
+                    autoSyncStatus?.lastSyncStatus === 'running' ? 'bg-amber-500 animate-pulse' :
+                    autoSyncStatus?.lastSyncStatus === 'error' ? 'bg-rose-500' : 'bg-slate-400'
+                  }`} />
+                  {autoSyncStatus?.lastSyncStatus === 'success' ? 'Hoạt động tốt' :
+                   autoSyncStatus?.lastSyncStatus === 'running' ? 'Đang đồng bộ...' :
+                   autoSyncStatus?.lastSyncStatus === 'error' ? 'Có cảnh báo' : 'Sẵn sàng'}
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Đồng bộ gần nhất:</span>
+                  <span className="font-mono font-medium text-slate-800 dark:text-slate-200">
+                    {autoSyncStatus?.lastSyncTime || 'Chưa chạy lần nào'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Bản ghi thu thập:</span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                    +{autoSyncStatus?.lastSyncAdded ?? 0} lượt mới
+                  </span>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-400 block mb-1">Chi tiết kết quả:</span>
+                  <p className="font-mono text-[11px] p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 break-words leading-relaxed">
+                    {autoSyncStatus?.lastSyncMessage || 'Sẵn sàng khởi động đồng bộ'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 text-[10px] text-slate-400 italic">
+              * Khuyến nghị: Chu kỳ 5 phút là tối ưu để không làm nghẽn băng thông thiết bị mà vẫn đảm bảo chấm công theo thời gian thực.
+            </div>
           </div>
         </div>
       </div>

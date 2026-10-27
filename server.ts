@@ -17,6 +17,17 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 const SETTINGS_FILE = path.join(__dirname, 'settings.json');
 const DATA_FILE = path.join(__dirname, 'data.json');
 
+export interface AutoSyncConfig {
+  enabled: boolean;
+  intervalMinutes: number;
+  syncLogs: boolean;
+  syncHeartbeat: boolean;
+  lastSyncTime?: string;
+  lastSyncStatus?: 'success' | 'error' | 'idle' | 'running';
+  lastSyncMessage?: string;
+  lastSyncAdded?: number;
+}
+
 interface SettingsData {
   host: string;
   appKey: string;
@@ -24,6 +35,7 @@ interface SettingsData {
   serial: string;
   devices: { name: string; box: string; code?: string; lastSeen?: string }[];
   workStart: string;
+  autoSync?: AutoSyncConfig;
 }
 
 interface DbData {
@@ -62,13 +74,31 @@ let settings: SettingsData = {
   secret: process.env.SECRET_KEY || '',
   serial: '',
   devices: [],
-  workStart: process.env.WORK_START || '08:30'
+  workStart: process.env.WORK_START || '08:30',
+  autoSync: {
+    enabled: true,
+    intervalMinutes: 5,
+    syncLogs: true,
+    syncHeartbeat: true,
+    lastSyncTime: '',
+    lastSyncStatus: 'idle',
+    lastSyncMessage: 'Sẵn sàng hoạt động',
+    lastSyncAdded: 0
+  }
 };
 
 try {
   if (fs.existsSync(SETTINGS_FILE)) {
     const raw = fs.readFileSync(SETTINGS_FILE, 'utf8');
-    settings = { ...settings, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    settings = {
+      ...settings,
+      ...parsed,
+      autoSync: {
+        ...settings.autoSync,
+        ...(parsed.autoSync || {})
+      }
+    };
   }
 } catch (e) {
   console.warn('Could not read settings.json:', e);
@@ -176,10 +206,38 @@ function extractImageFromData(data: any): string | undefined {
 }
 
 // Real HTTP call to Dahahi API with timeout and robust error parsing
-async function callDahahiApi(endpoint: string, body: Record<string, any> = {}, customHost?: string, customSecret?: string, timeoutMs: number = 8000) {
-  const host = (customHost || settings.host || '').trim().replace(/\/$/, '');
-  const secret = (customSecret || settings.secret || '').trim();
-  const appKey = settings.appKey || 'k77hcPwEXB4LTdJv96mz';
+async function callDahahiApi(
+  endpoint: string,
+  body: Record<string, any> = {},
+  customHost?: string,
+  customSecret?: string,
+  customAppKeyOrTimeout?: string | number,
+  timeoutMsInput?: number
+) {
+  let timeoutMs = 8000;
+  let customAppKey: string | undefined;
+
+  if (typeof customAppKeyOrTimeout === 'number') {
+    timeoutMs = customAppKeyOrTimeout;
+  } else if (typeof customAppKeyOrTimeout === 'string') {
+    customAppKey = customAppKeyOrTimeout;
+    if (typeof timeoutMsInput === 'number') {
+      timeoutMs = timeoutMsInput;
+    }
+  } else if (typeof timeoutMsInput === 'number') {
+    timeoutMs = timeoutMsInput;
+  }
+
+  let host = (customHost || settings.host || '').trim().replace(/\/$/, '');
+  if (host && !/^https?:\/\//i.test(host)) {
+    host = 'https://' + host;
+  }
+  let secret = (customSecret || '').trim();
+  // If secret is masked from UI (e.g. '••••••••') or empty, fallback to stored settings.secret
+  if (!secret || secret.includes('•••') || secret.includes('***')) {
+    secret = (settings.secret || '').trim();
+  }
+  const appKey = (customAppKey || settings.appKey || 'k77hcPwEXB4LTdJv96mz').trim();
 
   if (!host) {
     throw new Error('Chưa cấu hình Website của Dahahi (domain)');
@@ -193,15 +251,18 @@ async function callDahahiApi(endpoint: string, body: Record<string, any> = {}, c
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    // CRITICAL: Only AppKey and SecretKey are sent (NO lowercase duplicates).
+    // Node.js Headers join duplicate case-insensitive keys with comma: 'abc, abc',
+    // which causes Dahahi to reject requests with FARE0011 (401 Unauthorized).
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'AppKey': appKey,
+      'SecretKey': secret
+    };
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'AppKey': appKey,
-        'SecretKey': secret,
-        'appkey': appKey,
-        'secretkey': secret
-      },
+      headers: requestHeaders,
       body: JSON.stringify(body),
       signal: controller.signal
     });
@@ -219,9 +280,10 @@ async function callDahahiApi(endpoint: string, body: Record<string, any> = {}, c
     }
 
     if (response.status === 401) {
+      const cleanRaw = typeof rawText === 'string' && rawText.trim() ? rawText.trim() : 'Unauthorized access resource';
       return {
         ErrorCode: 'FARE0011',
-        ErrorMessage: 'Không có quyền truy cập (401 Unauthorized). Kiểm tra lại Api Secret Key và Website Dahahi.',
+        ErrorMessage: `Không có quyền truy cập (401 Unauthorized: ${cleanRaw}). Kiểm tra lại Api Secret Key và AppKey tại mục Cài đặt -> Tích hợp API.`,
         httpStatus: 401,
         raw: rawText
       };
@@ -298,27 +360,240 @@ const addAttendanceLog = (pid: string, time: string, m: string, temp?: number | 
 // Generic proxy route for API playground and raw calls
 app.post('/api/dahahi/call', async (req: Request, res: Response) => {
   try {
-    const { endpoint, body } = req.body;
+    const { endpoint, body, host, secret, appKey } = req.body;
     if (!endpoint) {
       return res.status(400).json({ ErrorCode: 'ERR_PARAM', ErrorMessage: 'Thiếu endpoint API' });
     }
-    const result = await callDahahiApi(endpoint, body || {});
+    const result = await callDahahiApi(endpoint, body || {}, host, secret, appKey);
     return res.json(result);
   } catch (e: any) {
     return res.status(500).json({ ErrorCode: 'ERR_PROXY', ErrorMessage: e.message });
   }
 });
 
+// Auto-Sync Periodic Engine
+let autoSyncTimer: NodeJS.Timeout | null = null;
+let isSyncRunning = false;
+
+async function executePeriodicSync(): Promise<{ ok: boolean; added: number; message: string }> {
+  if (isSyncRunning) {
+    return { ok: true, added: 0, message: 'Tiến trình đồng bộ đang chạy' };
+  }
+  if (!settings.autoSync?.enabled) {
+    return { ok: false, added: 0, message: 'Chế độ tự đồng bộ định kỳ đang tắt' };
+  }
+  if (!settings.host || !settings.secret) {
+    if (settings.autoSync) {
+      settings.autoSync.lastSyncStatus = 'error';
+      settings.autoSync.lastSyncMessage = 'Chưa cấu hình Website Dahahi hoặc Api Secret Key';
+    }
+    return { ok: false, added: 0, message: 'Chưa cấu hình Website Dahahi hoặc Api Secret Key' };
+  }
+
+  const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  isSyncRunning = true;
+  if (settings.autoSync) {
+    settings.autoSync.lastSyncStatus = 'running';
+    settings.autoSync.lastSyncMessage = 'Đang đồng bộ dữ liệu từ thiết bị...';
+  }
+
+  let totalAdded = 0;
+  const errors: string[] = [];
+
+  try {
+    // 1. If syncHeartbeat: verify machine online status
+    if (settings.autoSync?.syncHeartbeat) {
+      try {
+        const pingRes = await callDahahiApi('/api/faceid/getAllMachine', {}, settings.host, settings.secret, 7000);
+        if (pingRes && pingRes.ErrorCode === '000000' && Array.isArray(pingRes.Data)) {
+          for (const m of pingRes.Data) {
+            const boxId = String(m.MachineBoxId);
+            const dev = settings.devices.find(d => d.box === boxId);
+            if (dev) {
+              dev.lastSeen = nowStr;
+              dev.name = dev.name || m.MachineName;
+              dev.code = m.MachineCode || dev.code;
+            }
+            db.seen[boxId] = nowStr;
+          }
+        } else if (pingRes?.ErrorCode === 'FARE0011') {
+          errors.push('Lỗi 401: Api Secret Key không hợp lệ');
+        }
+      } catch (err: any) {
+        console.warn('[Auto-Sync] Lỗi ping trạng thái máy:', err.message);
+      }
+    }
+
+    // 2. If syncLogs: pull checkin records for today and yesterday
+    if (settings.autoSync?.syncLogs) {
+      const todayDate = new Date();
+      const yesterdayDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const fromStr = `${yesterdayDate.toISOString().slice(0, 10)} 00:00:00`;
+      const toStr = `${todayDate.toISOString().slice(0, 10)} 23:59:59`;
+
+      const targetBoxes = settings.devices.length > 0
+        ? settings.devices.map(d => d.box)
+        : (settings.serial ? [settings.serial] : []);
+
+      for (const boxId of targetBoxes) {
+        try {
+          let pageIndex = 1;
+          for (;;) {
+            const r = await callDahahiApi('/api/facereg/checkinhis', {
+              MachineBoxId: boxId,
+              FacePersionId: '',
+              FromTimeStr: toDahahiTime(fromStr),
+              ToTimeStr: toDahahiTime(toStr),
+              pageIndex,
+              PageSize: 100
+            }, settings.host, settings.secret, 8000);
+
+            if (!r || r.ErrorCode !== '000000') {
+              if (r?.ErrorCode === 'FARE0011') {
+                errors.push(`Máy ${boxId}: 401 Unauthorized (FARE0011)`);
+              } else {
+                errors.push(`Máy ${boxId}: ${r?.ErrorMessage || r?.ErrorCode || 'Lỗi lấy checkin'}`);
+              }
+              break;
+            }
+
+            const data: any[] = r.Data || [];
+            for (const item of data) {
+              const rawTime = fromDahahiTime(item.CheckinTimeStr);
+              totalAdded += addAttendanceLog(item.FacePersionId, rawTime, boxId, item.Temperature);
+            }
+
+            if (!data.length || pageIndex * 100 >= (r.Total || 0)) break;
+            pageIndex++;
+          }
+        } catch (err: any) {
+          errors.push(`Máy ${boxId}: ${err.message}`);
+        }
+      }
+    }
+
+    if (totalAdded > 0) {
+      saveDb();
+    }
+
+    const successMessage = errors.length > 0
+      ? `Đồng bộ một phần (+${totalAdded} lượt mới). Cảnh báo: ${errors.join(', ')}`
+      : `Tự động đồng bộ thành công lúc ${nowStr.slice(11, 19)} (+${totalAdded} lượt mới)`;
+
+    if (settings.autoSync) {
+      settings.autoSync.lastSyncTime = nowStr;
+      settings.autoSync.lastSyncAdded = totalAdded;
+      settings.autoSync.lastSyncStatus = errors.length > 0 && totalAdded === 0 ? 'error' : 'success';
+      settings.autoSync.lastSyncMessage = successMessage;
+    }
+    saveSettings();
+
+    return {
+      ok: errors.length === 0 || totalAdded > 0,
+      added: totalAdded,
+      message: successMessage
+    };
+  } catch (globalErr: any) {
+    if (settings.autoSync) {
+      settings.autoSync.lastSyncTime = nowStr;
+      settings.autoSync.lastSyncStatus = 'error';
+      settings.autoSync.lastSyncMessage = `Lỗi đồng bộ: ${globalErr.message}`;
+    }
+    saveSettings();
+    return { ok: false, added: 0, message: `Lỗi đồng bộ: ${globalErr.message}` };
+  } finally {
+    isSyncRunning = false;
+  }
+}
+
+function startAutoSyncJob() {
+  if (autoSyncTimer) {
+    clearInterval(autoSyncTimer);
+    autoSyncTimer = null;
+  }
+
+  if (!settings.autoSync?.enabled) {
+    return;
+  }
+
+  const intervalMinutes = Math.max(1, settings.autoSync.intervalMinutes || 5);
+  const intervalMs = intervalMinutes * 60 * 1000;
+
+  // Run initial sync after a short delay if settings are present
+  if (settings.host && settings.secret) {
+    setTimeout(() => {
+      executePeriodicSync().catch(err => console.warn('[Auto-Sync] Lỗi lần chạy đầu:', err.message));
+    }, 3500);
+  }
+
+  autoSyncTimer = setInterval(() => {
+    executePeriodicSync().catch(err => console.warn('[Auto-Sync] Lỗi chu kỳ:', err.message));
+  }, intervalMs);
+}
+
 // 1. Get connection settings
 app.get('/api/settings', (req: Request, res: Response) => {
   res.json({
     host: settings.host,
-    appKey: settings.appKey,
+    appKey: settings.appKey || 'k77hcPwEXB4LTdJv96mz',
     hasSecret: !!settings.secret,
     serial: settings.serial,
     workStart: settings.workStart,
-    devices: settings.devices
+    devices: settings.devices,
+    autoSync: settings.autoSync
   });
+});
+
+// Auto-sync configuration and manual trigger routes
+app.get('/api/sync/auto', (req: Request, res: Response) => {
+  res.json({
+    ok: true,
+    autoSync: settings.autoSync || {
+      enabled: false,
+      intervalMinutes: 5,
+      syncLogs: true,
+      syncHeartbeat: true,
+      lastSyncStatus: 'idle'
+    }
+  });
+});
+
+app.post('/api/sync/auto', (req: Request, res: Response) => {
+  try {
+    const { enabled, intervalMinutes, syncLogs, syncHeartbeat } = req.body;
+    settings.autoSync = {
+      ...settings.autoSync,
+      enabled: typeof enabled === 'boolean' ? enabled : settings.autoSync?.enabled ?? true,
+      intervalMinutes: typeof intervalMinutes === 'number' && intervalMinutes > 0 ? intervalMinutes : settings.autoSync?.intervalMinutes ?? 5,
+      syncLogs: typeof syncLogs === 'boolean' ? syncLogs : settings.autoSync?.syncLogs ?? true,
+      syncHeartbeat: typeof syncHeartbeat === 'boolean' ? syncHeartbeat : settings.autoSync?.syncHeartbeat ?? true
+    };
+    saveSettings();
+    startAutoSyncJob();
+    return res.json({
+      ok: true,
+      autoSync: settings.autoSync,
+      message: settings.autoSync.enabled
+        ? `Đã bật tự động đồng bộ định kỳ (${settings.autoSync.intervalMinutes} phút/lần)`
+        : 'Đã tắt tự động đồng bộ định kỳ'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/sync/trigger', async (req: Request, res: Response) => {
+  try {
+    const result = await executePeriodicSync();
+    return res.json({
+      ok: result.ok,
+      added: result.added,
+      message: result.message,
+      autoSync: settings.autoSync
+    });
+  } catch (err: any) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // 2. Connect machine based on Domain, Key, Serial
@@ -329,6 +604,7 @@ app.post('/api/connect', async (req: Request, res: Response) => {
       host = 'https://' + host;
     }
     const secret = String(req.body.secret || '').trim() || settings.secret;
+    const appKey = String(req.body.appKey || settings.appKey || 'k77hcPwEXB4LTdJv96mz').trim();
     const serial = String(req.body.serial || req.body.box || '').trim();
     const name = String(req.body.name || '').trim();
 
@@ -343,13 +619,13 @@ app.post('/api/connect', async (req: Request, res: Response) => {
     }
 
     // Call getAllMachine on real Dahahi server to verify credentials and search for this serial
-    const r = await callDahahiApi('/api/faceid/getAllMachine', {}, host, secret);
+    const r = await callDahahiApi('/api/faceid/getAllMachine', {}, host, secret, appKey);
 
     if (!r || r.ErrorCode !== '000000') {
       const errMsg = r?.ErrorMessage || 'Lỗi xác thực với máy chủ Dahahi';
       return res.status(400).json({
         ok: false,
-        error: `Không thể kết nối tới ${host}: ${r?.ErrorCode || 'LỖI'} - ${errMsg}. Vui lòng kiểm tra lại Api Secret Key.`
+        error: `Không thể kết nối tới ${host}: ${r?.ErrorCode || 'LỖI'} - ${errMsg}. Vui lòng kiểm tra lại Api Secret Key và AppKey.`
       });
     }
 
@@ -371,6 +647,7 @@ app.post('/api/connect', async (req: Request, res: Response) => {
     // Save configuration
     settings.host = host;
     settings.secret = secret;
+    settings.appKey = appKey;
     settings.serial = serial;
 
     const boxId = String(matched.MachineBoxId);
@@ -409,8 +686,9 @@ app.post('/api/test', async (req: Request, res: Response) => {
   try {
     const host = req.body.host ? String(req.body.host).trim().replace(/\/$/, '') : settings.host;
     const secret = req.body.secret ? String(req.body.secret).trim() : settings.secret;
+    const appKey = req.body.appKey ? String(req.body.appKey).trim() : (settings.appKey || 'k77hcPwEXB4LTdJv96mz');
 
-    const r = await callDahahiApi('/api/faceid/getAllMachine', {}, host, secret);
+    const r = await callDahahiApi('/api/faceid/getAllMachine', {}, host, secret, appKey);
     if (r && r.ErrorCode === '000000') {
       return res.json({
         ok: true,
@@ -1107,6 +1385,7 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Dahahi Attendance Full-Stack Server running at http://localhost:${PORT}`);
+    startAutoSyncJob();
   });
 }
 

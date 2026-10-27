@@ -1,0 +1,18 @@
+{
+  "host": "",
+  "appKey": "k77hcPwEXB4LTdJv96mz",
+  "secret": "",
+  "serial": "",
+  "devices": [],
+  "workStart": "08:30",
+  "autoSync": {
+    "enabled": true,
+    "intervalMinutes": 5,
+    "syncLogs": true,
+    "syncHeartbeat": true,
+    "lastSyncTime": "",
+    "lastSyncStatus": "error",
+    "lastSyncMessage": "Chưa cấu hình Website Dahahi hoặc Api Secret Key",
+    "lastSyncAdded": 0
+  }
+}

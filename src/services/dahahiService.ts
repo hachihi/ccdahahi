@@ -1,4 +1,4 @@
-import { DahahiMachine, Employee, AttendanceLog, ConnectionSettings, MonthlyReportRow } from '../types/dahahi';
+import { DahahiMachine, Employee, AttendanceLog, ConnectionSettings, MonthlyReportRow, AutoSyncConfig } from '../types/dahahi';
 
 export const DEFAULT_SETTINGS: ConnectionSettings = {
   host: '',
@@ -8,7 +8,17 @@ export const DEFAULT_SETTINGS: ConnectionSettings = {
   workStartTime: '08:30',
   workEndTime: '17:30',
   callbackCheckinUrl: typeof window !== 'undefined' ? `${window.location.origin}/callback/checkin` : '',
-  callbackHeartbeatUrl: typeof window !== 'undefined' ? `${window.location.origin}/callback/heartbeat` : ''
+  callbackHeartbeatUrl: typeof window !== 'undefined' ? `${window.location.origin}/callback/heartbeat` : '',
+  autoSync: {
+    enabled: true,
+    intervalMinutes: 5,
+    syncLogs: true,
+    syncHeartbeat: true,
+    lastSyncTime: '',
+    lastSyncStatus: 'idle',
+    lastSyncMessage: 'Sẵn sàng hoạt động',
+    lastSyncAdded: 0
+  }
 };
 
 // Local storage keys for resilient Vercel serverless caching
@@ -213,10 +223,11 @@ export class DahahiDataService {
           workStartTime: data.workStart || cached.workStartTime || '08:30',
           workEndTime: '17:30',
           callbackCheckinUrl: `${window.location.origin}/callback/checkin`,
-          callbackHeartbeatUrl: `${window.location.origin}/callback/heartbeat`
+          callbackHeartbeatUrl: `${window.location.origin}/callback/heartbeat`,
+          autoSync: data.autoSync || cached.autoSync
         };
         if (data.host) {
-          setLocalItem(LS_SETTINGS, { ...cached, host: data.host, serial: data.serial });
+          setLocalItem(LS_SETTINGS, { ...cached, host: data.host, serial: data.serial, autoSync: merged.autoSync });
         }
         return merged;
       }
@@ -224,6 +235,58 @@ export class DahahiDataService {
       console.warn('Could not fetch settings from server:', e);
     }
     return cached;
+  }
+
+  // Get Auto-Sync Configuration
+  static async getAutoSync(): Promise<AutoSyncConfig> {
+    try {
+      const res = await fetch('/api/sync/auto');
+      if (res.ok) {
+        const data = await res.json();
+        return data.autoSync;
+      }
+    } catch (e) {
+      console.warn('Could not get auto sync config:', e);
+    }
+    const cached = getLocalItem<ConnectionSettings>(LS_SETTINGS, DEFAULT_SETTINGS);
+    return cached.autoSync || DEFAULT_SETTINGS.autoSync!;
+  }
+
+  // Update Auto-Sync Configuration
+  static async updateAutoSync(config: Partial<AutoSyncConfig>): Promise<{ ok: boolean; autoSync?: AutoSyncConfig; message?: string }> {
+    try {
+      const res = await fetch('/api/sync/auto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+      const data = await res.json();
+      if (data.ok && data.autoSync) {
+        const current = getLocalItem<ConnectionSettings>(LS_SETTINGS, DEFAULT_SETTINGS);
+        setLocalItem(LS_SETTINGS, { ...current, autoSync: data.autoSync });
+      }
+      return data;
+    } catch (e: any) {
+      return { ok: false, message: e.message };
+    }
+  }
+
+  // Trigger Immediate Auto-Sync Run
+  static async triggerAutoSync(): Promise<{ ok: boolean; added?: number; message?: string; autoSync?: AutoSyncConfig }> {
+    try {
+      const res = await fetch('/api/sync/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.autoSync) {
+        const current = getLocalItem<ConnectionSettings>(LS_SETTINGS, DEFAULT_SETTINGS);
+        setLocalItem(LS_SETTINGS, { ...current, autoSync: data.autoSync });
+      }
+      return data;
+    } catch (e: any) {
+      return { ok: false, message: e.message };
+    }
   }
 
   // Connect to Dahahi machine based on domain, key, and serial

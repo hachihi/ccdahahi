@@ -84,6 +84,17 @@ export interface MonthlyReportRow {
   late: number;
 }
 
+export interface AutoSyncConfig {
+  enabled: boolean;
+  intervalMinutes: number; // e.g. 1, 2, 5, 10, 15, 30
+  syncLogs: boolean; // Tự động tải lịch sử checkin
+  syncHeartbeat: boolean; // Tự động kiểm tra online máy
+  lastSyncTime?: string;
+  lastSyncStatus?: 'success' | 'error' | 'idle' | 'running';
+  lastSyncMessage?: string;
+  lastSyncAdded?: number;
+}
+
 export interface ConnectionSettings {
   host: string; // e.g. https://ten_mien.dahahi.vn
   appKey: string; // default k77hcPwEXB4LTdJv96mz
@@ -93,6 +104,7 @@ export interface ConnectionSettings {
   workEndTime: string; // e.g. 17:30
   callbackCheckinUrl: string;
   callbackHeartbeatUrl: string;
+  autoSync?: AutoSyncConfig;
 }
 
 export interface SyncRecord {

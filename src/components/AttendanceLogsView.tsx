@@ -172,6 +172,16 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          {settings.autoSync?.enabled && (
+            <span
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80"
+              title={settings.autoSync.lastSyncMessage || 'Đang tự đồng bộ định kỳ'}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Tự đồng bộ: {settings.autoSync.intervalMinutes}p/lần
+            </span>
+          )}
+
           {canSync && (
             <button
               onClick={handleSyncFromDevice}
