@@ -202,7 +202,8 @@ export class DahahiDataService {
         endpoint,
         body,
         host: cachedSettings.host,
-        secret: cachedSettings.secretKey
+        secret: cachedSettings.secretKey,
+        appKey: cachedSettings.appKey
       })
     });
     return await res.json();
@@ -290,19 +291,21 @@ export class DahahiDataService {
   }
 
   // Connect to Dahahi machine based on domain, key, and serial
-  static async connectDevice(host: string, secret: string, serial: string, name?: string): Promise<{ ok: boolean; message?: string; error?: string; device?: any }> {
+  static async connectDevice(host: string, secret: string, serial: string, name?: string, appKey?: string): Promise<{ ok: boolean; message?: string; error?: string; device?: any }> {
+    const currentSettings = getLocalItem<ConnectionSettings>(LS_SETTINGS, DEFAULT_SETTINGS);
+    const finalAppKey = (appKey || currentSettings.appKey || 'k77hcPwEXB4LTdJv96mz').trim();
     const res = await fetch('/api/connect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ host, secret, serial, name })
+      body: JSON.stringify({ host, secret, serial, name, appKey: finalAppKey })
     });
     const json = await res.json().catch(() => ({ ok: false, error: 'Lỗi giao tiếp máy chủ' }));
     if (json.ok) {
-      const currentSettings = getLocalItem<ConnectionSettings>(LS_SETTINGS, DEFAULT_SETTINGS);
       setLocalItem(LS_SETTINGS, {
         ...currentSettings,
         host,
         secretKey: secret,
+        appKey: finalAppKey,
         serial
       });
       if (json.device) {
@@ -322,14 +325,16 @@ export class DahahiDataService {
   }
 
   // Test / Ping connection
-  static async testConnection(host?: string, secret?: string): Promise<{ ok: boolean; machines?: any[]; error?: string }> {
+  static async testConnection(host?: string, secret?: string, appKey?: string): Promise<{ ok: boolean; machines?: any[]; error?: string }> {
     const cachedSettings = getLocalItem<ConnectionSettings>(LS_SETTINGS, DEFAULT_SETTINGS);
+    const finalAppKey = (appKey || cachedSettings.appKey || 'k77hcPwEXB4LTdJv96mz').trim();
     const res = await fetch('/api/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         host: host || cachedSettings.host,
-        secret: secret || cachedSettings.secretKey
+        secret: secret || cachedSettings.secretKey,
+        appKey: finalAppKey
       })
     });
     const json = await res.json().catch(() => ({ ok: false, error: 'Không kết nối được' }));

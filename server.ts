@@ -7,7 +7,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+
+function getPort(): number {
+  const portArgIndex = process.argv.indexOf('--port');
+  if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {
+    const p = Number(process.argv[portArgIndex + 1]);
+    if (!isNaN(p) && p > 0) return p;
+  }
+  // In development/preview environment, the dev server must always run on port 3000
+  if (process.env.NODE_ENV !== 'production') {
+    return 3000;
+  }
+  return Number(process.env.PORT) || 3000;
+}
+const PORT = getPort();
 
 // Body parsers with large limit for Base64 face images
 app.use(express.json({ limit: '50mb' }));
