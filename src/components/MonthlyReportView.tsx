@@ -12,6 +12,8 @@ import {
 import { DahahiDataService, downloadCsv, pad2 } from '../services/dahahiService';
 import { ConnectionSettings, AttendanceLog, Employee, DahahiMachine } from '../types/dahahi';
 import { TimesheetTemplatesView } from './TimesheetTemplatesView';
+import { WorkConfigView } from './WorkConfigView';
+import { WorkConfig, loadWorkConfig, saveWorkConfig } from '../services/workConfig';
 
 interface MonthlyReportViewProps {
   logs: AttendanceLog[];
@@ -28,7 +30,15 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
   settings,
   showToast
 }) => {
-  const [reportMode, setReportMode] = useState<'matrix' | 'machine' | 'daily'>('matrix');
+  type Mode = 'matrix' | 'daily' | 'payroll' | 'machine' | 'config';
+  const [reportMode, setReportMode] = useState<Mode>('matrix');
+  const [workConfig, setWorkConfigState] = useState<WorkConfig>(() =>
+    loadWorkConfig(settings.workStartTime, settings.workEndTime)
+  );
+  const setWorkConfig = (c: WorkConfig) => {
+    setWorkConfigState(c);
+    saveWorkConfig(c);
+  };
   const currentMonth = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth);
   const [workStartTime, setWorkStartTime] = useState<string>(settings.workStartTime || '08:30');
@@ -72,10 +82,12 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
     showToast(`Đã xuất bảng công tháng ${selectedMonth} ra tệp CSV`, 'success');
   };
 
-  const modeTabs: { id: 'matrix' | 'machine' | 'daily'; label: string }[] = [
-    { id: 'matrix', label: 'Bảng công tổng hợp' },
-    { id: 'machine', label: 'Mẫu 1: Chi tiết theo máy' },
-    { id: 'daily', label: 'Mẫu 2: Chấm công chi tiết' }
+  const modeTabs: { id: Mode; label: string }[] = [
+    { id: 'matrix', label: 'Mẫu 1: Bảng công tháng' },
+    { id: 'daily', label: 'Mẫu 2: Chi tiết vào/ra' },
+    { id: 'payroll', label: 'Mẫu 5: Tổng hợp tính lương' },
+    { id: 'machine', label: 'Mẫu 6: Nhật ký theo máy' },
+    { id: 'config', label: 'Cấu hình ca & lịch làm việc' }
   ];
 
   const modeBar = (
@@ -100,14 +112,24 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
     return (
       <div className="space-y-4 animate-in fade-in duration-200">
         {modeBar}
-        <TimesheetTemplatesView
-          template={reportMode}
-          logs={logs}
-          employees={employees}
-          machines={machines}
-          settings={settings}
-          showToast={showToast}
-        />
+        {reportMode === 'config' ? (
+          <WorkConfigView
+            config={workConfig}
+            setConfig={setWorkConfig}
+            employees={employees}
+            showToast={showToast}
+          />
+        ) : (
+          <TimesheetTemplatesView
+            template={reportMode}
+            logs={logs}
+            employees={employees}
+            machines={machines}
+            settings={settings}
+            config={workConfig}
+            showToast={showToast}
+          />
+        )}
       </div>
     );
   }
