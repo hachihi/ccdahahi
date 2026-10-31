@@ -1,10 +1,10 @@
-import { DahahiMachine, Employee, AttendanceLog, SystemUser, UserRole, UserPermission, ApiDocItem } from '../types/dahahi';
+import { HachihiMachine, Employee, AttendanceLog, SystemUser, UserRole, UserPermission, ApiDocItem } from '../types/hachihi';
 
 export const PERMISSION_LIST: UserPermission[] = [
   {
     key: 'manage_devices',
     label: 'Quản lý thiết bị & Kết nối',
-    description: 'Thêm, sửa, ngắt kết nối máy chấm công Dahahi, kiểm tra kết nối API'
+    description: 'Thêm, sửa, ngắt kết nối máy chấm công Hachihi, kiểm tra kết nối API'
   },
   {
     key: 'manage_employees',
@@ -69,7 +69,7 @@ export const DEFAULT_ROLES: UserRole[] = [
   {
     id: 'TECHNICIAN',
     name: 'Kỹ thuật viên Thiết bị (Technician)',
-    description: 'Quản lý kết nối phần cứng Dahahi, sao chép dữ liệu giữa các máy, kiểm tra online',
+    description: 'Quản lý kết nối phần cứng Hachihi, sao chép dữ liệu giữa các máy, kiểm tra online',
     badgeColor: 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border-blue-200 dark:border-blue-900',
     permissions: [
       'manage_devices',
@@ -95,7 +95,7 @@ export const INITIAL_USERS: SystemUser[] = [
     id: 'usr-admin',
     username: 'admin',
     fullName: 'Quản trị viên Hệ thống',
-    email: 'admin@dahahi.local',
+    email: 'admin@hachihi.local',
     role: 'SUPER_ADMIN',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
     isActive: true,
@@ -105,7 +105,7 @@ export const INITIAL_USERS: SystemUser[] = [
 ];
 
 // Real operational environment - completely clean, NO demo/dummy data
-export const INITIAL_MACHINES: DahahiMachine[] = [];
+export const INITIAL_MACHINES: HachihiMachine[] = [];
 export const SAMPLE_EMPLOYEES: Employee[] = [];
 export const SAMPLE_LOGS: AttendanceLog[] = [];
 
@@ -122,11 +122,11 @@ export const DUCUMENTATION_DATA: {
       name: 'GetEmployeeList',
       url: '/api/facereg/GetEmployeeList',
       method: 'POST',
-      description: 'Lấy danh sách toàn bộ nhân viên được lưu trên Cloud Dahahi (Phiên bản v2.0.0). Dùng để đồng bộ danh bạ ban đầu.',
+      description: 'Lấy danh sách toàn bộ nhân viên được lưu trên Cloud Hachihi (Phiên bản v2.0.0). Dùng để đồng bộ danh bạ ban đầu.',
       headers: {
         'Content-Type': 'application/json',
         'AppKey': 'k77hcPwEXB4LTdJv96mz',
-        'SecretKey': 'Lấy từ web Dahahi -> Cài đặt -> Tích hợp API'
+        'SecretKey': 'Lấy từ web Hachihi -> Cài đặt -> Tích hợp API'
       },
       inputParams: [
         { field: 'FullName', type: 'string', required: false, description: 'Tìm theo tên nhân viên (để trống để lấy tất cả)', sample: 'Nam' },
@@ -183,7 +183,7 @@ export const DUCUMENTATION_DATA: {
       name: 'edit',
       url: '/api/facereg/edit',
       method: 'POST',
-      description: 'Đăng ký mới hoặc sửa thông tin người dùng kèm ảnh khuôn mặt (Base64) lên máy chấm công Dahahi.',
+      description: 'Đăng ký mới hoặc sửa thông tin người dùng kèm ảnh khuôn mặt (Base64) lên máy chấm công Hachihi.',
       headers: {
         'Content-Type': 'application/json',
         'AppKey': 'k77hcPwEXB4LTdJv96mz',
@@ -215,7 +215,7 @@ export const DUCUMENTATION_DATA: {
       name: 'remove',
       url: '/api/facereg/remove',
       method: 'POST',
-      description: 'Xóa thông tin người dùng và dữ liệu khuôn mặt trên máy chấm công Dahahi.',
+      description: 'Xóa thông tin người dùng và dữ liệu khuôn mặt trên máy chấm công Hachihi.',
       headers: {
         'Content-Type': 'application/json',
         'AppKey': 'k77hcPwEXB4LTdJv96mz',
@@ -297,7 +297,7 @@ export const DUCUMENTATION_DATA: {
       name: 'getAllMachine',
       url: '/api/faceid/getAllMachine',
       method: 'POST',
-      description: 'Lấy toàn bộ danh sách máy chấm công Dahahi đã đăng ký dưới tài khoản của đơn vị.',
+      description: 'Lấy toàn bộ danh sách máy chấm công Hachihi đã đăng ký dưới tài khoản của đơn vị.',
       headers: {
         'Content-Type': 'application/json',
         'AppKey': 'k77hcPwEXB4LTdJv96mz',
@@ -381,7 +381,7 @@ export const DUCUMENTATION_DATA: {
       name: 'Checkin Callback Webhook',
       url: 'http(s)://<server>/callback/checkin',
       method: 'POST',
-      description: 'Máy chấm công Dahahi tự động gọi đến URL này ngay tức thì khi nhân viên vừa quẹt mặt.',
+      description: 'Máy chấm công Hachihi tự động gọi đến URL này ngay tức thì khi nhân viên vừa quẹt mặt.',
       headers: {
         'Content-Type': 'application/json'
       },
@@ -401,7 +401,7 @@ export const DUCUMENTATION_DATA: {
       name: 'Heartbeat Callback Webhook',
       url: 'http(s)://<server>/callback/heartbeat',
       method: 'POST',
-      description: 'Máy chấm công Dahahi gọi định kỳ (mỗi 1-3 phút) để thông báo máy đang online hay offline.',
+      description: 'Máy chấm công Hachihi gọi định kỳ (mỗi 1-3 phút) để thông báo máy đang online hay offline.',
       headers: {
         'Content-Type': 'application/json'
       },
@@ -415,10 +415,10 @@ export const DUCUMENTATION_DATA: {
     }
   ],
   cukcukGuide: [
-    'Bước 1: Đăng nhập vào trang quản trị Dahahi được cấp (ví dụ: https://congty.dahahi.vn).',
+    'Bước 1: Đăng nhập vào trang quản trị Hachihi được cấp (ví dụ: https://congty.hachihi.vn).',
     'Bước 2: Vào menu "Cài đặt" -> "Tích hợp API". Tại đây hệ thống hiển thị "Api Secret Key". Hãy bấm sao chép khóa này.',
     'Bước 3: Vào menu "Thiết bị", tại danh sách thiết bị bạn sẽ thấy cột "Tên thiết bị". Sao chép dãy mã số ở dòng dưới cùng (đây chính là Mã thiết bị / MachineBoxId, ví dụ: 1468063).',
-    'Bước 4: Mở ứng dụng Quản lý Máy Chấm Công Dahahi -> chuyển sang tab "Kết nối máy" -> điền Website Dahahi, dán Api Secret Key và Mã thiết bị (Serial) -> bấm "Kết nối".',
+    'Bước 4: Mở ứng dụng Quản lý Máy Chấm Công Hachihi -> chuyển sang tab "Kết nối máy" -> điền Website Hachihi, dán Api Secret Key và Mã thiết bị (Serial) -> bấm "Kết nối".',
     'Bước 5 (Tùy chọn nhận dữ liệu tự động theo thời gian thực): Điền vào mục CallBack Api Url và Heat Beat Api Url địa chỉ máy chủ của bạn để nhận sự kiện quẹt thẻ tức thì.'
   ],
   csharpSdkMethods: [
@@ -442,14 +442,14 @@ export const DUCUMENTATION_DATA: {
     { code: '000000', message: 'Thành công (Request executed successfully)', solution: 'Yêu cầu được thực thi chính xác.' },
     { code: 'FARE0001', message: 'Lỗi không thấy khuôn mặt trong ảnh', solution: 'Ảnh chụp bị tối, mờ, bị che khuất hoặc không có mặt người. Vui lòng chụp lại ảnh rõ nét, nhìn thẳng, không đeo kính râm hoặc khẩu trang.' },
     { code: 'FARE0006', message: 'Face persionid không hợp lệ', solution: 'ID nhân viên không được để trống hoặc chứa ký tự đặc biệt không hợp lệ.' },
-    { code: 'FARE0008', message: 'Mã thiết bị không tồn tại', solution: 'Kiểm tra lại MachineBoxId xem đã nhập đúng với mã trên web Dahahi hay chưa.' },
+    { code: 'FARE0008', message: 'Mã thiết bị không tồn tại', solution: 'Kiểm tra lại MachineBoxId xem đã nhập đúng với mã trên web Hachihi hay chưa.' },
     { code: 'FARE0009', message: 'Ảnh base64 không hợp lệ', solution: 'Định dạng base64 sai hoặc kích thước file ảnh quá lớn (> 1MB). Hệ thống đã tự động nén ảnh về <= 480px để tối ưu.' },
-    { code: 'FARE0011', message: 'Mã bí mật không hợp lệ (Invalid Secret Key)', solution: 'SecretKey truyền trong Header không đúng hoặc đã bị đổi trên web Dahahi. Cần kiểm tra lại mục Cài đặt -> Tích hợp API.' },
+    { code: 'FARE0011', message: 'Mã bí mật không hợp lệ (Invalid Secret Key)', solution: 'SecretKey truyền trong Header không đúng hoặc đã bị đổi trên web Hachihi. Cần kiểm tra lại mục Cài đặt -> Tích hợp API.' },
     { code: 'FARE0012', message: 'Người dùng không tồn tại trên thiết bị', solution: 'Nhân viên này chưa từng được đăng ký hoặc đã bị xóa khỏi máy.' },
     { code: 'FARE0013', message: 'Tìm kiếm lỗi hoặc timeout', solution: 'Máy chấm công đang bận, mất kết nối mạng LAN/Internet hoặc thời gian phản hồi quá lâu.' },
     { code: 'FARE0014', message: 'Thực hiện lệnh lỗi hoặc timeout', solution: 'Lệnh không hoàn thành kịp thời gian quy định.' },
     { code: 'FARE0030', message: 'Bản ghi không tồn tại', solution: 'Không tìm thấy ID phiên đồng bộ khuôn mặt tương ứng.' },
-    { code: 'MACH0023', message: 'Mã thiết bị không thuộc khách hàng quản lý', solution: 'Thiết bị này thuộc đơn vị khác hoặc chưa được gán vào tài khoản Dahahi của công ty bạn.' },
+    { code: 'MACH0023', message: 'Mã thiết bị không thuộc khách hàng quản lý', solution: 'Thiết bị này thuộc đơn vị khác hoặc chưa được gán vào tài khoản Hachihi của công ty bạn.' },
     { code: '901', message: 'Thông tin license không hợp lệ', solution: 'Áp dụng cho SDK C#: File .jdilic không khớp với mã máy hoặc đã hết hạn.' },
     { code: '460', message: 'Data out of range, Single packet data more than 1m', solution: 'Gói dữ liệu vượt quá 1MB. Cần giảm độ phân giải ảnh trước khi gửi.' },
     { code: '467', message: 'Person num is full (Bộ nhớ thiết bị đã đầy)', solution: 'Máy đã đạt số lượng người dùng tối đa (thường là 3.000 - 10.000 khuôn mặt tùy model). Cần xóa bớt người dùng cũ.' }

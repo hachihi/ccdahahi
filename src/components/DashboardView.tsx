@@ -18,15 +18,15 @@ import {
   Sparkles,
   DownloadCloud
 } from 'lucide-react';
-import { DahahiMachine, Employee, AttendanceLog, ConnectionSettings } from '../types/dahahi';
+import { HachihiMachine, Employee, AttendanceLog, ConnectionSettings } from '../types/hachihi';
 import { useAuth } from '../context/AuthContext';
-import { DahahiDataService } from '../services/dahahiService';
+import { HachihiDataService } from '../services/hachihiService';
 import { ActiveTab } from './Header';
 import { KPIDashboard } from './KPIDashboard';
 
 
 interface DashboardViewProps {
-  machines: DahahiMachine[];
+  machines: HachihiMachine[];
   employees: Employee[];
   logs: AttendanceLog[];
   settings: ConnectionSettings;
@@ -84,7 +84,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
     setIsSyncing(true);
     try {
-      const res = await DahahiDataService.syncLogsFromMachine(todayStr, todayStr);
+      const res = await HachihiDataService.syncLogsFromMachine(todayStr, todayStr);
       if (res && res.ok) {
         onRefreshData();
         showToast(res.message || `Đã đồng bộ ${res.added} lượt chấm công từ máy`, 'success');
@@ -105,7 +105,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-xs font-medium mb-3">
             <Wifi className="w-3.5 h-3.5 text-emerald-300" />
-            Hệ thống Quản lý Chấm công Khuôn mặt Dahahi AI
+            Hệ thống Quản lý Chấm công Khuôn mặt Hachihi AI
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             Quản trị & Giám sát Chấm công Trực tuyến
@@ -171,7 +171,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 Chưa có máy chấm công nào được kết nối
               </h4>
               <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
-                Vui lòng nhập Website Dahahi, Api Secret Key và Serial máy để bắt đầu đồng bộ dữ liệu thực tế.
+                Vui lòng nhập Website Hachihi, Api Secret Key và Serial máy để bắt đầu đồng bộ dữ liệu thực tế.
               </p>
             </div>
           </div>
@@ -205,7 +205,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 Lượt chấm công mới nhất
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Ghi nhận theo thời gian thực từ thiết bị Dahahi
+                Ghi nhận theo thời gian thực từ thiết bị Hachihi
               </p>
             </div>
             <button
@@ -347,7 +347,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
               <div className="flex justify-between">
-                <span>Website Dahahi:</span>
+                <span>Website Hachihi:</span>
                 <span className="font-mono text-slate-700 dark:text-slate-300 truncate max-w-[170px]">
                   {settings.host || 'Chưa cấu hình'}
                 </span>
@@ -376,12 +376,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-slate-900 dark:to-slate-800 rounded-2xl p-5 border border-emerald-200/80 dark:border-slate-800">
             <h4 className="font-bold text-xs uppercase text-emerald-800 dark:text-emerald-400 tracking-wider flex items-center gap-1.5">
               <Camera className="w-4 h-4" />
-              Nạp & Tải ảnh Face ID chuẩn máy Dahahi
+              Nạp & Tải ảnh Face ID chuẩn máy Hachihi
             </h4>
             <ul className="mt-3 text-xs text-slate-600 dark:text-slate-300 space-y-2">
               <li className="flex items-start gap-1.5">
                 <span className="text-emerald-500 font-bold">•</span>
-                <span>Tự động nén ảnh về &le; 480px JPEG để bảo đảm tương thích phần cứng máy Dahahi.</span>
+                <span>Tự động nén ảnh về &le; 480px JPEG để bảo đảm tương thích phần cứng máy Hachihi.</span>
               </li>
               <li className="flex items-start gap-1.5">
                 <span className="text-emerald-500 font-bold">•</span>

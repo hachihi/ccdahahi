@@ -30,11 +30,11 @@ import {
   Layers,
   ArrowUpRight
 } from 'lucide-react';
-import { DahahiMachine, Employee, AttendanceLog, ConnectionSettings } from '../types/dahahi';
-import { DahahiDataService } from '../services/dahahiService';
+import { HachihiMachine, Employee, AttendanceLog, ConnectionSettings } from '../types/hachihi';
+import { HachihiDataService } from '../services/hachihiService';
 
 interface KPIDashboardProps {
-  machines?: DahahiMachine[];
+  machines?: HachihiMachine[];
   employees?: Employee[];
   logs?: AttendanceLog[];
   settings?: ConnectionSettings;
@@ -48,7 +48,7 @@ export const KPIDashboard: React.FC<KPIDashboardProps> = ({
   settings: propSettings,
   onRefresh
 }) => {
-  const [internalMachines, setInternalMachines] = useState<DahahiMachine[]>(propMachines || []);
+  const [internalMachines, setInternalMachines] = useState<HachihiMachine[]>(propMachines || []);
   const [internalEmployees, setInternalEmployees] = useState<Employee[]>(propEmployees || []);
   const [internalLogs, setInternalLogs] = useState<AttendanceLog[]>(propLogs || []);
   const [internalSettings, setInternalSettings] = useState<ConnectionSettings>(propSettings || {
@@ -86,10 +86,10 @@ export const KPIDashboard: React.FC<KPIDashboardProps> = ({
     setLoading(true);
     try {
       const [m, e, l, s] = await Promise.all([
-        DahahiDataService.getMachines(),
-        DahahiDataService.getEmployees(),
-        DahahiDataService.getLogs(),
-        DahahiDataService.getSettings()
+        HachihiDataService.getMachines(),
+        HachihiDataService.getEmployees(),
+        HachihiDataService.getLogs(),
+        HachihiDataService.getSettings()
       ]);
       setInternalMachines(m);
       setInternalEmployees(e);
@@ -238,7 +238,7 @@ export const KPIDashboard: React.FC<KPIDashboardProps> = ({
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-300">
-              Real-time Analytics • Dahahi Face AI
+              Real-time Analytics • Hachihi Face AI
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black tracking-tight mt-1">
@@ -501,7 +501,7 @@ export const KPIDashboard: React.FC<KPIDashboardProps> = ({
                 Lưu lượng Chấm công theo Giờ trong Ngày
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Nhịp độ quét khuôn mặt ghi nhận qua cảm biến camera Dahahi
+                Nhịp độ quét khuôn mặt ghi nhận qua cảm biến camera Hachihi
               </p>
             </div>
             <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
@@ -616,7 +616,7 @@ export const KPIDashboard: React.FC<KPIDashboardProps> = ({
           <div>
             <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
               <HardDrive className="w-4 h-4 text-emerald-500" />
-              Tình trạng Thiết bị Dahahi
+              Tình trạng Thiết bị Hachihi
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Giám sát kết nối mạng & xung nhịp heartbeat

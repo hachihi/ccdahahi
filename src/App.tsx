@@ -13,14 +13,14 @@ import { TimesheetTemplatesView } from './components/TimesheetTemplatesView';
 import { UserManagementView } from './components/UserManagementView';
 import { DocumentationView } from './components/DocumentationView';
 import { Toast, ToastMessage } from './components/Toast';
-import { DahahiDataService, DEFAULT_SETTINGS } from './services/dahahiService';
-import { DahahiMachine, Employee, AttendanceLog, ConnectionSettings, ActiveTab } from './types/dahahi';
+import { HachihiDataService, DEFAULT_SETTINGS } from './services/hachihiService';
+import { HachihiMachine, Employee, AttendanceLog, ConnectionSettings, ActiveTab } from './types/hachihi';
 
 import { Layers, ShieldCheck, Heart, ExternalLink, HardDrive } from 'lucide-react';
 
 const MainAppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [machines, setMachines] = useState<DahahiMachine[]>([]);
+  const [machines, setMachines] = useState<HachihiMachine[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [settings, setSettings] = useState<ConnectionSettings>(DEFAULT_SETTINGS);
@@ -67,10 +67,10 @@ const MainAppContent: React.FC = () => {
   const refreshData = useCallback(async () => {
     try {
       const [fetchedMachines, fetchedEmployees, fetchedLogs, fetchedSettings] = await Promise.all([
-        DahahiDataService.getMachines(),
-        DahahiDataService.getEmployees(),
-        DahahiDataService.getLogs(),
-        DahahiDataService.getSettings()
+        HachihiDataService.getMachines(),
+        HachihiDataService.getEmployees(),
+        HachihiDataService.getLogs(),
+        HachihiDataService.getSettings()
       ]);
       setMachines(fetchedMachines);
       setEmployees(fetchedEmployees);
@@ -213,7 +213,7 @@ const MainAppContent: React.FC = () => {
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-emerald-500" />
               <span className="font-semibold text-slate-800 dark:text-slate-200">
-                DAHAHI CHẤM CÔNG 3.0
+                HACHIHI CHẤM CÔNG 3.0
               </span>
               <span>• Face AI & Workforce Management</span>
             </div>
@@ -223,7 +223,7 @@ const MainAppContent: React.FC = () => {
                 onClick={() => setActiveTab('docs')}
                 className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
               >
-                Tài liệu Dahahi SDK
+                Tài liệu Hachihi SDK
               </button>
               <span>•</span>
               <button

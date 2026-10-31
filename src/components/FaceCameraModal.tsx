@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, RefreshCw, Check, X, AlertCircle } from 'lucide-react';
-import { shrinkImage } from '../services/dahahiService';
+import { shrinkImage } from '../services/hachihiService';
 
 interface FaceCameraModalProps {
   isOpen: boolean;
@@ -201,7 +201,7 @@ export const FaceCameraModal: React.FC<FaceCameraModalProps> = ({
           {/* Hint */}
           <div className="mt-4 text-xs text-slate-500 dark:text-slate-400 text-center space-y-1">
             <p>• Nhìn thẳng vào camera, cởi khẩu trang & kính râm.</p>
-            <p>• Ảnh sẽ được tự động tối ưu hóa chuẩn nén thiết bị Dahahi (&le;480px).</p>
+            <p>• Ảnh sẽ được tự động tối ưu hóa chuẩn nén thiết bị Hachihi (&le;480px).</p>
           </div>
         </div>
 

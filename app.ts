@@ -79,10 +79,10 @@ interface DbData {
 
 // Load settings
 let settings: SettingsData = {
-  host: process.env.DAHAHI_HOST || '',
+  host: process.env.HACHIHI_HOST || '',
   appKey: process.env.APP_KEY || 'k77hcPwEXB4LTdJv96mz',
   secret: process.env.SECRET_KEY || '',
-  serial: process.env.DAHAHI_SERIAL || '',
+  serial: process.env.HACHIHI_SERIAL || '',
   devices: [],
   workStart: process.env.WORK_START || '08:30',
   autoSync: {
@@ -143,8 +143,8 @@ const saveDb = () => {
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-// Format "yyyy-MM-dd HH:mm:ss" -> "dd/MM/yyyy HH:mm:ss" (Dahahi spec)
-const toDahahiTime = (s?: string): string => {
+// Format "yyyy-MM-dd HH:mm:ss" -> "dd/MM/yyyy HH:mm:ss" (Hachihi spec)
+const toHachihiTime = (s?: string): string => {
   if (!s) return '';
   const clean = s.replace('T', ' ');
   const [datePart, timePart = '00:00:00'] = clean.split(' ');
@@ -155,8 +155,8 @@ const toDahahiTime = (s?: string): string => {
   return `${pad2(Number(d))}/${pad2(Number(m))}/${y} ${timeFormatted}`;
 };
 
-// Format Dahahi "dd/MM/yyyy HH:mm:ss" -> "yyyy-MM-dd HH:mm:ss"
-const fromDahahiTime = (s?: string): string => {
+// Format Hachihi "dd/MM/yyyy HH:mm:ss" -> "yyyy-MM-dd HH:mm:ss"
+const fromHachihiTime = (s?: string): string => {
   if (!s) return '';
   const m = /(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{1,2}):?(\d{0,2})/.exec(s);
   if (!m) return s;
@@ -192,7 +192,7 @@ const VALID_TIME = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 
 const stripBase64 = (s?: string) => (s || '').replace(/^data:image\/\w+;base64,/, '');
 
-// Extract image from any possible field in Dahahi response
+// Extract image from any possible field in Hachihi response
 function extractImageFromData(data: any): string | undefined {
   if (!data) return undefined;
   if (typeof data === 'string') {
@@ -242,8 +242,8 @@ function extractImageFromData(data: any): string | undefined {
   return undefined;
 }
 
-// Real HTTP call to Dahahi API with timeout and robust error parsing
-async function callDahahiApiOnce(
+// Real HTTP call to Hachihi API with timeout and robust error parsing
+async function callHachihiApiOnce(
   endpoint: string,
   body: Record<string, any> = {},
   customHost?: string,
@@ -277,10 +277,10 @@ async function callDahahiApiOnce(
   const appKey = (customAppKey || settings.appKey || 'k77hcPwEXB4LTdJv96mz').trim();
 
   if (!host) {
-    throw new Error('Chưa cấu hình Website của Dahahi (domain)');
+    throw new Error('Chưa cấu hình Website của Hachihi (domain)');
   }
   if (!secret) {
-    throw new Error('Chưa cấu hình Api Secret Key của Dahahi');
+    throw new Error('Chưa cấu hình Api Secret Key của Hachihi');
   }
 
   const url = `${host}${endpoint}`;
@@ -290,7 +290,7 @@ async function callDahahiApiOnce(
   try {
     // CRITICAL: Only AppKey and SecretKey are sent (NO lowercase duplicates).
     // Node.js Headers join duplicate case-insensitive keys with comma: 'abc, abc',
-    // which causes Dahahi to reject requests with FARE0011 (401 Unauthorized).
+    // which causes Hachihi to reject requests with FARE0011 (401 Unauthorized).
     const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'AppKey': appKey,
@@ -329,7 +329,7 @@ async function callDahahiApiOnce(
     if (response.status === 404) {
       return {
         ErrorCode: '404',
-        ErrorMessage: `Endpoint ${endpoint} không tồn tại trên hệ thống Dahahi (404 Not Found)`,
+        ErrorMessage: `Endpoint ${endpoint} không tồn tại trên hệ thống Hachihi (404 Not Found)`,
         httpStatus: 404,
         raw: rawText
       };
@@ -338,7 +338,7 @@ async function callDahahiApiOnce(
     if (!response.ok && (!json || typeof json !== 'object' || !json.ErrorCode)) {
       return {
         ErrorCode: `HTTP_${response.status}`,
-        ErrorMessage: `Lỗi kết nối Dahahi HTTP ${response.status}: ${rawText.slice(0, 120)}`,
+        ErrorMessage: `Lỗi kết nối Hachihi HTTP ${response.status}: ${rawText.slice(0, 120)}`,
         httpStatus: response.status,
         raw: rawText
       };
@@ -364,7 +364,7 @@ async function callDahahiApiOnce(
     if (err.name === 'AbortError') {
       return {
         ErrorCode: 'FARE0013',
-        ErrorMessage: `Quá thời gian phản hồi (${timeoutMs / 1000}s) từ máy chủ Dahahi khi gọi ${endpoint}`,
+        ErrorMessage: `Quá thời gian phản hồi (${timeoutMs / 1000}s) từ máy chủ Hachihi khi gọi ${endpoint}`,
         timeout: true
       };
     }
@@ -373,12 +373,12 @@ async function callDahahiApiOnce(
 }
 
 /**
- * Gọi API Dahahi có thử lại có giới hạn (tối đa 2 lần thử lại, chờ 0,5s rồi 1,5s) CHỈ khi lỗi tạm thời:
+ * Gọi API Hachihi có thử lại có giới hạn (tối đa 2 lần thử lại, chờ 0,5s rồi 1,5s) CHỈ khi lỗi tạm thời:
  * quá thời gian, lỗi mạng, hoặc HTTP 5xx. Không thử lại với lỗi cấu hình/401/404 hoặc khi máy trả lỗi nghiệp vụ.
  * Không thử lại: ClearAllPerson (thao tác nguy hiểm) và các lệnh gọi đặt timeout ngắn (<7s) có chủ đích.
  */
 const RETRY_DELAYS_MS = [500, 1500];
-async function callDahahiApi(
+async function callHachihiApi(
   endpoint: string,
   body: Record<string, any> = {},
   customHost?: string,
@@ -392,7 +392,7 @@ async function callDahahiApi(
 
   for (let attempt = 0; ; attempt++) {
     try {
-      const r: any = await callDahahiApiOnce(endpoint, body, customHost, customSecret, customAppKeyOrTimeout, timeoutMsInput);
+      const r: any = await callHachihiApiOnce(endpoint, body, customHost, customSecret, customAppKeyOrTimeout, timeoutMsInput);
       const transient = r && (r.timeout === true || (typeof r.httpStatus === 'number' && r.httpStatus >= 500));
       if (transient && attempt < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
@@ -452,13 +452,13 @@ const addAttendanceLog = (
 };
 
 // Generic proxy route for API playground and raw calls
-app.post('/api/dahahi/call', async (req: Request, res: Response) => {
+app.post(['/api/hachihi/call', '/api/dahahi/call'], async (req: Request, res: Response) => {
   try {
     const { endpoint, body, host, secret, appKey } = req.body;
     if (!endpoint) {
       return res.status(400).json({ ErrorCode: 'ERR_PARAM', ErrorMessage: 'Thiếu endpoint API' });
     }
-    const result = await callDahahiApi(endpoint, body || {}, host, secret, appKey);
+    const result = await callHachihiApi(endpoint, body || {}, host, secret, appKey);
     return res.json(result);
   } catch (e: any) {
     return res.status(500).json({ ErrorCode: 'ERR_PROXY', ErrorMessage: e.message });
@@ -479,9 +479,9 @@ async function executePeriodicSync(): Promise<{ ok: boolean; added: number; mess
   if (!settings.host || !settings.secret) {
     if (settings.autoSync) {
       settings.autoSync.lastSyncStatus = 'error';
-      settings.autoSync.lastSyncMessage = 'Chưa cấu hình Website Dahahi hoặc Api Secret Key';
+      settings.autoSync.lastSyncMessage = 'Chưa cấu hình Website Hachihi hoặc Api Secret Key';
     }
-    return { ok: false, added: 0, message: 'Chưa cấu hình Website Dahahi hoặc Api Secret Key' };
+    return { ok: false, added: 0, message: 'Chưa cấu hình Website Hachihi hoặc Api Secret Key' };
   }
 
   const nowStr = nowVN();
@@ -498,7 +498,7 @@ async function executePeriodicSync(): Promise<{ ok: boolean; added: number; mess
     // 1. If syncHeartbeat: verify machine online status
     if (settings.autoSync?.syncHeartbeat) {
       try {
-        const pingRes = await callDahahiApi('/api/faceid/getAllMachine', {}, settings.host, settings.secret, 7000);
+        const pingRes = await callHachihiApi('/api/faceid/getAllMachine', {}, settings.host, settings.secret, 7000);
         if (pingRes && pingRes.ErrorCode === '000000' && Array.isArray(pingRes.Data)) {
           for (const m of pingRes.Data) {
             const boxId = String(m.MachineBoxId);
@@ -531,11 +531,11 @@ async function executePeriodicSync(): Promise<{ ok: boolean; added: number; mess
         try {
           let pageIndex = 1;
           for (;;) {
-            const r = await callDahahiApi('/api/facereg/checkinhis', {
+            const r = await callHachihiApi('/api/facereg/checkinhis', {
               MachineBoxId: boxId,
               FacePersionId: '',
-              FromTimeStr: toDahahiTime(fromStr),
-              ToTimeStr: toDahahiTime(toStr),
+              FromTimeStr: toHachihiTime(fromStr),
+              ToTimeStr: toHachihiTime(toStr),
               pageIndex,
               PageSize: 100
             }, settings.host, settings.secret, 8000);
@@ -551,7 +551,7 @@ async function executePeriodicSync(): Promise<{ ok: boolean; added: number; mess
 
             const data: any[] = r.Data || [];
             for (const item of data) {
-              const rawTime = fromDahahiTime(item.CheckinTimeStr);
+              const rawTime = fromHachihiTime(item.CheckinTimeStr);
               totalAdded += addAttendanceLog(item.FacePersionId, rawTime, boxId, item.Temperature, Number(item.Similarity ?? item.similarity));
             }
 
@@ -701,7 +701,7 @@ app.post('/api/connect', async (req: Request, res: Response) => {
     const name = String(req.body.name || '').trim();
 
     if (!host) {
-      return res.status(400).json({ ok: false, error: 'Vui lòng nhập Website / Domain của Dahahi' });
+      return res.status(400).json({ ok: false, error: 'Vui lòng nhập Website / Domain của Hachihi' });
     }
     if (!secret) {
       return res.status(400).json({ ok: false, error: 'Vui lòng nhập Api Secret Key' });
@@ -710,11 +710,11 @@ app.post('/api/connect', async (req: Request, res: Response) => {
       return res.status(400).json({ ok: false, error: 'Vui lòng nhập Serial máy (Mã thiết bị / MachineBoxId)' });
     }
 
-    // Call getAllMachine on real Dahahi server to verify credentials and search for this serial
-    const r = await callDahahiApi('/api/faceid/getAllMachine', {}, host, secret, appKey);
+    // Call getAllMachine on real Hachihi server to verify credentials and search for this serial
+    const r = await callHachihiApi('/api/faceid/getAllMachine', {}, host, secret, appKey);
 
     if (!r || r.ErrorCode !== '000000') {
-      const errMsg = r?.ErrorMessage || 'Lỗi xác thực với máy chủ Dahahi';
+      const errMsg = r?.ErrorMessage || 'Lỗi xác thực với máy chủ Hachihi';
       return res.status(400).json({
         ok: false,
         error: `Không thể kết nối tới ${host}: ${r?.ErrorCode || 'LỖI'} - ${errMsg}. Vui lòng kiểm tra lại Api Secret Key và AppKey.`
@@ -732,7 +732,7 @@ app.post('/api/connect', async (req: Request, res: Response) => {
       const availableSerials = list.map(x => `${x.MachineName} (Mã: ${x.MachineBoxId})`).join(', ');
       return res.status(404).json({
         ok: false,
-        error: `Kết nối tài khoản Dahahi thành công, nhưng không tìm thấy serial "${serial}". Các mã thiết bị hiện có trên tài khoản của bạn: ${availableSerials || '(Chưa có máy nào được gán)'}`
+        error: `Kết nối tài khoản Hachihi thành công, nhưng không tìm thấy serial "${serial}". Các mã thiết bị hiện có trên tài khoản của bạn: ${availableSerials || '(Chưa có máy nào được gán)'}`
       });
     }
 
@@ -745,7 +745,7 @@ app.post('/api/connect', async (req: Request, res: Response) => {
     const boxId = String(matched.MachineBoxId);
     const existingIndex = settings.devices.findIndex(d => d.box === boxId);
     const deviceItem = {
-      name: name || matched.MachineName || `Máy Dahahi ${boxId}`,
+      name: name || matched.MachineName || `Máy Hachihi ${boxId}`,
       box: boxId,
       code: matched.MachineCode,
       lastSeen: db.seen[boxId] || nowVN()
@@ -765,7 +765,7 @@ app.post('/api/connect', async (req: Request, res: Response) => {
       allDevices: settings.devices
     });
   } catch (err: any) {
-    console.error('Error connecting to Dahahi:', err);
+    console.error('Error connecting to Hachihi:', err);
     return res.status(500).json({
       ok: false,
       error: `Không thể kết nối tới máy chủ: ${err.message}`
@@ -780,7 +780,7 @@ app.post('/api/test', async (req: Request, res: Response) => {
     const secret = req.body.secret ? String(req.body.secret).trim() : settings.secret;
     const appKey = req.body.appKey ? String(req.body.appKey).trim() : (settings.appKey || 'k77hcPwEXB4LTdJv96mz');
 
-    const r = await callDahahiApi('/api/faceid/getAllMachine', {}, host, secret, appKey);
+    const r = await callHachihiApi('/api/faceid/getAllMachine', {}, host, secret, appKey);
     if (r && r.ErrorCode === '000000') {
       return res.json({
         ok: true,
@@ -862,13 +862,13 @@ async function pushOne(emp: EmpRecord, mId: string, ctx: Ctx): Promise<MachineSy
     return { status: 'pending', action: 'push', error: 'Chưa có ảnh khuôn mặt nên chưa đẩy lên máy', at };
   }
   try {
-    const r = await callDahahiApi('/api/facereg/edit', {
+    const r = await callHachihiApi('/api/facereg/edit', {
       FacePersionId: emp.id,
       MachineBoxId: mId,
       FullName: emp.name,
       Base64Image: stripBase64(emp.photo),
-      FromTimeStr: toDahahiTime(emp.from),
-      ToTimeStr: toDahahiTime(emp.to)
+      FromTimeStr: toHachihiTime(emp.from),
+      ToTimeStr: toHachihiTime(emp.to)
     }, ctx.host, ctx.secret);
     if (r && r.ErrorCode === '000000') return { status: 'ok', action: 'push', at };
     return {
@@ -886,7 +886,7 @@ async function pushOne(emp: EmpRecord, mId: string, ctx: Ctx): Promise<MachineSy
 async function removeOne(empId: string, mId: string, ctx: Ctx): Promise<MachineSync> {
   const at = nowStamp();
   try {
-    const r = await callDahahiApi('/api/facereg/remove', {
+    const r = await callHachihiApi('/api/facereg/remove', {
       FacePersionId: empId,
       MachineBoxId: mId
     }, ctx.host, ctx.secret);
@@ -1119,7 +1119,7 @@ app.post('/api/pull-machine', async (req: Request, res: Response) => {
     let photoCount = 0;
 
     for (;;) {
-      const r = await callDahahiApi('/api/facereg/searchByName', {
+      const r = await callHachihiApi('/api/facereg/searchByName', {
         FullName: '',
         MachineBoxId: m,
         pageIndex,
@@ -1173,7 +1173,7 @@ app.post('/api/pull-machine', async (req: Request, res: Response) => {
         } else {
           // 2. Try /api/facereg/getInfo with both casing styles
           try {
-            let info = await callDahahiApi('/api/facereg/getInfo', {
+            let info = await callHachihiApi('/api/facereg/getInfo', {
               FacePersionId: id,
               FacePersonId: id,
               PersonId: id,
@@ -1187,7 +1187,7 @@ app.post('/api/pull-machine', async (req: Request, res: Response) => {
 
             // If not found or timed out, try getInfo on Cloud without MachineBoxId
             if (!extracted) {
-              info = await callDahahiApi('/api/facereg/getInfo', {
+              info = await callHachihiApi('/api/facereg/getInfo', {
                 FacePersionId: id,
                 FacePersonId: id,
                 PersonId: id,
@@ -1233,7 +1233,7 @@ app.post('/api/pull-machine', async (req: Request, res: Response) => {
   }
 });
 
-// 11. Download / Pull employees from Dahahi Cloud (v2.0 / Company registry)
+// 11. Download / Pull employees from Hachihi Cloud (v2.0 / Company registry)
 app.post('/api/pull-cloud', async (req: Request, res: Response) => {
   try {
     const host = (req.body.host || settings.host || '').trim().replace(/\/$/, '');
@@ -1245,7 +1245,7 @@ app.post('/api/pull-cloud', async (req: Request, res: Response) => {
     let pageIndex = 1;
 
     for (;;) {
-      const r = await callDahahiApi('/api/facereg/searchByName', {
+      const r = await callHachihiApi('/api/facereg/searchByName', {
         FullName: '',
         MachineBoxId: '',
         pageIndex,
@@ -1306,7 +1306,7 @@ app.post('/api/pull-cloud', async (req: Request, res: Response) => {
     if (count === 0) {
       pageIndex = 1;
       for (;;) {
-        const r = await callDahahiApi('/api/facereg/GetEmployeeList', {
+        const r = await callHachihiApi('/api/facereg/GetEmployeeList', {
           FullName: '',
           PageIndex: pageIndex,
           pageIndex: pageIndex,
@@ -1317,7 +1317,7 @@ app.post('/api/pull-cloud', async (req: Request, res: Response) => {
 
         if (!r || (r.ErrorCode !== '000000' && !Array.isArray(r.Data) && !Array.isArray(r.data))) {
           if (count === 0) {
-            throw new Error(r?.ErrorMessage || `Máy chủ Dahahi phản hồi lỗi: ${r?.ErrorCode || 'Lỗi kết nối'}`);
+            throw new Error(r?.ErrorMessage || `Máy chủ Hachihi phản hồi lỗi: ${r?.ErrorCode || 'Lỗi kết nối'}`);
           }
           break;
         }
@@ -1373,7 +1373,7 @@ app.post('/api/pull-cloud', async (req: Request, res: Response) => {
         try {
           const emp = db.emp[id];
           const targetBox = emp.machines[0] || settings.serial || (settings.devices[0]?.box || '');
-          let info = await callDahahiApi('/api/facereg/getInfo', {
+          let info = await callHachihiApi('/api/facereg/getInfo', {
             FacePersionId: id,
             FacePersonId: id,
             PersonId: id,
@@ -1383,7 +1383,7 @@ app.post('/api/pull-cloud', async (req: Request, res: Response) => {
 
           let extracted = extractImageFromData(info?.Data) || extractImageFromData(info);
           if (!extracted) {
-            info = await callDahahiApi('/api/facereg/getInfo', {
+            info = await callHachihiApi('/api/facereg/getInfo', {
               FacePersionId: id,
               FacePersonId: id,
               PersonId: id,
@@ -1408,7 +1408,7 @@ app.post('/api/pull-cloud', async (req: Request, res: Response) => {
       ok: true,
       count,
       photoCount,
-      message: `Đã tải xuống thành công ${count} nhân sự từ Cloud Dahahi (kèm ${photoCount} ảnh khuôn mặt)`
+      message: `Đã tải xuống thành công ${count} nhân sự từ Cloud Hachihi (kèm ${photoCount} ảnh khuôn mặt)`
     });
   } catch (err: any) {
     return res.status(500).json({ ok: false, error: err.message });
@@ -1424,7 +1424,7 @@ app.post('/api/employees/:id/pull-face', async (req: Request, res: Response) => 
     const targetBox = String(req.body.m || req.body.machineBoxId || settings.serial || (settings.devices[0]?.box || '')).trim();
 
     // 1. Try getInfo with MachineBoxId
-    let info = await callDahahiApi('/api/facereg/getInfo', {
+    let info = await callHachihiApi('/api/facereg/getInfo', {
       FacePersionId: id,
       FacePersonId: id,
       PersonId: id,
@@ -1437,7 +1437,7 @@ app.post('/api/employees/:id/pull-face', async (req: Request, res: Response) => 
 
     // 2. Try getInfo without MachineBoxId (Cloud registry)
     if (!photo) {
-      info = await callDahahiApi('/api/facereg/getInfo', {
+      info = await callHachihiApi('/api/facereg/getInfo', {
         FacePersionId: id,
         FacePersonId: id,
         PersonId: id,
@@ -1449,7 +1449,7 @@ app.post('/api/employees/:id/pull-face', async (req: Request, res: Response) => 
 
     // 3. Try searchByName with this employee's name/ID
     if (!photo) {
-      const searchRes = await callDahahiApi('/api/facereg/searchByName', {
+      const searchRes = await callHachihiApi('/api/facereg/searchByName', {
         FullName: db.emp[id]?.name || '',
         MachineBoxId: targetBox,
         pageIndex: 1,
@@ -1515,11 +1515,11 @@ app.post('/api/sync-logs', async (req: Request, res: Response) => {
         try {
           let pageIndex = 1;
           for (;;) {
-            const resp = await callDahahiApi('/api/facereg/checkinhis', {
+            const resp = await callHachihiApi('/api/facereg/checkinhis', {
               MachineBoxId: boxId,
               FacePersionId: '',
-              FromTimeStr: toDahahiTime(`${c.from} 00:00:00`),
-              ToTimeStr: toDahahiTime(`${c.to} 23:59:59`),
+              FromTimeStr: toHachihiTime(`${c.from} 00:00:00`),
+              ToTimeStr: toHachihiTime(`${c.to} 23:59:59`),
               pageIndex,
               PageSize: 200
             }, req.body.host, req.body.secret);
@@ -1530,7 +1530,7 @@ app.post('/api/sync-logs', async (req: Request, res: Response) => {
 
             const data: any[] = resp.Data || [];
             for (const item of data) {
-              const rawTime = fromDahahiTime(item.CheckinTimeStr);
+              const rawTime = fromHachihiTime(item.CheckinTimeStr);
               r.added += addAttendanceLog(item.FacePersionId, rawTime, boxId, item.Temperature, Number(item.Similarity ?? item.similarity));
             }
             if (!data.length || pageIndex * 200 >= (resp.Total || 0)) break;
@@ -1593,7 +1593,7 @@ app.post('/api/sync-faces', async (req: Request, res: Response) => {
     if (!from || !to) {
       return res.status(400).json({ ok: false, error: 'Thiếu máy nguồn hoặc máy đích' });
     }
-    const r = await callDahahiApi('/api/facereg/SyncFace', {
+    const r = await callHachihiApi('/api/facereg/SyncFace', {
       FromMachineBoxId: from,
       ToMachineBoxId: to
     }, req.body.host, req.body.secret);
@@ -1613,7 +1613,7 @@ app.post('/api/clear-machine', async (req: Request, res: Response) => {
     if (!machineBoxId) {
       return res.status(400).json({ ok: false, error: 'Thiếu mã thiết bị' });
     }
-    const r = await callDahahiApi('/api/facereg/ClearAllPerson', {
+    const r = await callHachihiApi('/api/facereg/ClearAllPerson', {
       MachineBoxId: machineBoxId
     }, req.body.host, req.body.secret);
     if (r && r.ErrorCode === '000000') {
@@ -1629,22 +1629,22 @@ app.post('/api/clear-machine', async (req: Request, res: Response) => {
   }
 });
 
-// 16. Webhook: Real-time Checkin Callback from Dahahi Device
+// 16. Webhook: Real-time Checkin Callback from Hachihi Device
 app.post('/callback/checkin', (req: Request, res: Response) => {
   const b = req.body;
   if (b.FacePersonId) {
-    const rawTime = fromDahahiTime(b.CheckinTime) || nowVN();
+    const rawTime = fromHachihiTime(b.CheckinTime) || nowVN();
     addAttendanceLog(b.FacePersonId, rawTime, b.MachineBoxId, b.Temperature);
     saveDb();
   }
   return res.json({ ErrorCode: '000000', ErrorMessage: 'Thành công' });
 });
 
-// 17. Webhook: Real-time Heartbeat Callback from Dahahi Device
+// 17. Webhook: Real-time Heartbeat Callback from Hachihi Device
 app.post('/callback/heartbeat', (req: Request, res: Response) => {
   const b = req.body;
   if (b.MachineBoxId) {
-    const rawTime = fromDahahiTime(b.MachineTime) || nowVN();
+    const rawTime = fromHachihiTime(b.MachineTime) || nowVN();
     db.seen[b.MachineBoxId] = rawTime;
     const device = settings.devices.find(d => d.box === String(b.MachineBoxId));
     if (device) {

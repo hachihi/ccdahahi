@@ -14,8 +14,8 @@ import {
   Star,
   Check
 } from 'lucide-react';
-import { TimesheetTemplate, TimesheetColumnConfig } from '../types/dahahi';
-import { DahahiDataService, downloadCsv } from '../services/dahahiService';
+import { TimesheetTemplate, TimesheetColumnConfig } from '../types/hachihi';
+import { HachihiDataService, downloadCsv } from '../services/hachihiService';
 import { useAuth } from '../context/AuthContext';
 
 interface TimesheetTemplatesViewProps {
@@ -38,7 +38,7 @@ export const TimesheetTemplatesView: React.FC<TimesheetTemplatesViewProps> = ({
   const loadTemplates = async () => {
     setLoading(true);
     try {
-      const data = await DahahiDataService.getTimesheetTemplates();
+      const data = await HachihiDataService.getTimesheetTemplates();
       setTemplates(data);
     } catch (err: any) {
       showToast('Lỗi tải danh sách mẫu bảng công: ' + err.message, 'error');
@@ -66,7 +66,7 @@ export const TimesheetTemplatesView: React.FC<TimesheetTemplatesViewProps> = ({
       return;
     }
 
-    const res = await DahahiDataService.saveTimesheetTemplate(editingTemplate);
+    const res = await HachihiDataService.saveTimesheetTemplate(editingTemplate);
     if (res.ok && res.templates) {
       setTemplates(res.templates);
       setIsModalOpen(false);
@@ -82,7 +82,7 @@ export const TimesheetTemplatesView: React.FC<TimesheetTemplatesViewProps> = ({
       showToast('Bạn không có quyền xóa mẫu', 'error');
       return;
     }
-    const res = await DahahiDataService.deleteTimesheetTemplate(id);
+    const res = await HachihiDataService.deleteTimesheetTemplate(id);
     if (res.ok && res.templates) {
       setTemplates(res.templates);
       showToast('Đã xóa mẫu bảng công', 'success');
@@ -93,7 +93,7 @@ export const TimesheetTemplatesView: React.FC<TimesheetTemplatesViewProps> = ({
 
   const handleSetDefault = async (tpl: TimesheetTemplate) => {
     const updated = { ...tpl, isDefault: true };
-    const res = await DahahiDataService.saveTimesheetTemplate(updated);
+    const res = await HachihiDataService.saveTimesheetTemplate(updated);
     if (res.ok && res.templates) {
       setTemplates(res.templates);
       showToast(`Đã đặt "${tpl.name}" làm mẫu xuất mặc định`, 'success');

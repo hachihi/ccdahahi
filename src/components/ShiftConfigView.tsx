@@ -14,8 +14,8 @@ import {
   Sparkles,
   ShieldAlert
 } from 'lucide-react';
-import { ShiftConfig, Employee } from '../types/dahahi';
-import { DahahiDataService } from '../services/dahahiService';
+import { ShiftConfig, Employee } from '../types/hachihi';
+import { HachihiDataService } from '../services/hachihiService';
 import { useAuth } from '../context/AuthContext';
 
 interface ShiftConfigViewProps {
@@ -50,7 +50,7 @@ export const ShiftConfigView: React.FC<ShiftConfigViewProps> = ({
   const loadShifts = async () => {
     setLoading(true);
     try {
-      const data = await DahahiDataService.getShifts();
+      const data = await HachihiDataService.getShifts();
       setShifts(data);
     } catch (err: any) {
       showToast('Lỗi tải danh sách ca: ' + err.message, 'error');
@@ -89,7 +89,7 @@ export const ShiftConfigView: React.FC<ShiftConfigViewProps> = ({
       applicableDepartments: shiftToSave.applicableDepartments || []
     };
 
-    const res = await DahahiDataService.saveShift(payload);
+    const res = await HachihiDataService.saveShift(payload);
     if (res.ok && res.shifts) {
       setShifts(res.shifts);
       setEditingShift(null);
@@ -109,7 +109,7 @@ export const ShiftConfigView: React.FC<ShiftConfigViewProps> = ({
       showToast('Không thể xóa ca Hành chính mặc định', 'error');
       return;
     }
-    const res = await DahahiDataService.deleteShift(code);
+    const res = await HachihiDataService.deleteShift(code);
     if (res.ok && res.shifts) {
       setShifts(res.shifts);
       showToast(`Đã xóa ca ${code}`, 'success');

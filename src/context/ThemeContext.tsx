@@ -8,7 +8,7 @@ interface ThemeContextType {
   setTheme: (theme: Theme) => void;
 }
 
-const THEME_KEY = 'dahahi_theme_v2';
+const THEME_KEY = 'hachihi_theme_v2';
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 

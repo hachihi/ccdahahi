@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Clock, Plus, Trash2, Download, Upload, Moon, CalendarDays, Users, Settings2 } from 'lucide-react';
-import { Employee } from '../types/dahahi';
+import { Employee } from '../types/hachihi';
 import { LeaveType, Shift, WorkConfig, parseWorkConfig, shiftSpan, uid } from '../services/workConfig';
 import { formatDateVi, todayVN } from '../services/timeUtils';
 

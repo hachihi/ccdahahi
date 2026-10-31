@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { ConnectionSettings, ActiveTab } from '../types/dahahi';
+import { ConnectionSettings, ActiveTab } from '../types/hachihi';
 
 export type { ActiveTab };
 
@@ -71,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
               <Layers className="w-4 h-4" />
             </div>
             <span className="font-bold text-slate-900 dark:text-white text-sm">
-              DAHAHI 3.0
+              HACHIHI 3.0
             </span>
           </div>
 

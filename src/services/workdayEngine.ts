@@ -1,4 +1,4 @@
-import { AttendanceLog, Employee } from '../types/dahahi';
+import { AttendanceLog, Employee } from '../types/hachihi';
 import { Shift, WorkConfig, resolveShift, shiftSpan } from './workConfig';
 import { addDays, datesBetween, fmtAbs, overlap, todayVN, weekdayOf } from './timeUtils';
 

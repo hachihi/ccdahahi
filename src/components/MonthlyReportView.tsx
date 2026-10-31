@@ -16,15 +16,15 @@ import {
   ArrowUpDown,
   FileText
 } from 'lucide-react';
-import { DahahiDataService, downloadCsv, pad2 } from '../services/dahahiService';
-import { ConnectionSettings, AttendanceLog, Employee, DahahiMachine } from '../types/dahahi';
+import { HachihiDataService, downloadCsv, pad2 } from '../services/hachihiService';
+import { ConnectionSettings, AttendanceLog, Employee, HachihiMachine } from '../types/hachihi';
 
 export type ReportTemplate = 'device_detail' | 'shift_detail' | 'monthly_matrix';
 
 interface MonthlyReportViewProps {
   logs: AttendanceLog[];
   employees: Employee[];
-  machines?: DahahiMachine[];
+  machines?: HachihiMachine[];
   settings: ConnectionSettings;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -84,7 +84,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
       return true;
     });
 
-    return DahahiDataService.calculateDeviceDetailReport(filteredLogs, employees, machines, {
+    return HachihiDataService.calculateDeviceDetailReport(filteredLogs, employees, machines, {
       monthStr: selectedDate ? undefined : selectedMonth,
       dateStr: selectedDate || undefined,
       machineBoxId: selectedMachine !== 'all' ? selectedMachine : undefined
@@ -103,7 +103,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
       return true;
     });
 
-    return DahahiDataService.calculateDetailedShiftReport(filteredLogs, employees, {
+    return HachihiDataService.calculateDetailedShiftReport(filteredLogs, employees, {
       monthStr: selectedDate ? undefined : selectedMonth,
       dateStr: selectedDate || undefined,
       standardIn,
@@ -118,7 +118,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
   const daysInMonth = new Date(Number(yearStr), Number(monthStr), 0).getDate();
   const dayNumbers = Array.from({ length: daysInMonth }, (_, i) => pad2(i + 1));
   const matrixReportRows = useMemo(() => {
-    return DahahiDataService.calculateMonthlyReport(logs, filteredEmployees, selectedMonth, standardIn);
+    return HachihiDataService.calculateMonthlyReport(logs, filteredEmployees, selectedMonth, standardIn);
   }, [logs, filteredEmployees, selectedMonth, standardIn]);
 
   // Totals for Mẫu 2

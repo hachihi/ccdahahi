@@ -16,8 +16,8 @@ import {
   Share2
 } from 'lucide-react';
 import { DUCUMENTATION_DATA } from '../mock/sampleData';
-import { ApiDocItem } from '../types/dahahi';
-import { DahahiDataService } from '../services/dahahiService';
+import { ApiDocItem } from '../types/hachihi';
+import { HachihiDataService } from '../services/hachihiService';
 
 interface DocumentationViewProps {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
@@ -55,7 +55,7 @@ export const DocumentationView: React.FC<DocumentationViewProps> = ({ showToast 
         setIsTesting(false);
         return;
       }
-      const res = await DahahiDataService.callDahahiApi(testerEndpoint, body);
+      const res = await HachihiDataService.callHachihiApi(testerEndpoint, body);
       setTesterResponse(JSON.stringify(res, null, 2));
       showToast('Thực thi API thành công', 'success');
     } catch (err: any) {
@@ -92,10 +92,10 @@ export const DocumentationView: React.FC<DocumentationViewProps> = ({ showToast 
             Tài liệu Nhà sản xuất Đính kèm
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-            Tài liệu Kỹ thuật Máy Chấm công Khuôn mặt Dahahi
+            Tài liệu Kỹ thuật Máy Chấm công Khuôn mặt Hachihi
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Bản số hóa đầy đủ của Dahahi Online API v2.0.0, Hướng dẫn tích hợp CUKCUK MISA và Thư viện SDK C# .NET
+            Bản số hóa đầy đủ của Hachihi Online API v2.0.0, Hướng dẫn tích hợp CUKCUK MISA và Thư viện SDK C# .NET
           </p>
         </div>
 
@@ -344,10 +344,10 @@ export const DocumentationView: React.FC<DocumentationViewProps> = ({ showToast 
             </div>
             <div>
               <h3 className="font-bold text-lg text-slate-900 dark:text-white">
-                Hướng dẫn Kết nối Máy Chấm công Nhận diện Khuôn mặt Dahahi (Chuẩn CUKCUK / MISA)
+                Hướng dẫn Kết nối Máy Chấm công Nhận diện Khuôn mặt Hachihi (Chuẩn CUKCUK / MISA)
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Tài liệu tích hợp chính thức giữa CukCuk Chấm công và Công ty TNHH Phần mềm JDI (Dahahi)
+                Tài liệu tích hợp chính thức giữa CukCuk Chấm công và Công ty TNHH Phần mềm JDI (Hachihi)
               </p>
             </div>
           </div>
@@ -359,10 +359,10 @@ export const DocumentationView: React.FC<DocumentationViewProps> = ({ showToast 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase block mb-1">
-                  1. Website Dahahi
+                  1. Website Hachihi
                 </span>
                 <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Địa chỉ URL tên miền riêng do Dahahi cấp (ví dụ: <code className="font-mono">https://ten_don_vi.dahahi.vn</code>).
+                  Địa chỉ URL tên miền riêng do Hachihi cấp (ví dụ: <code className="font-mono">https://ten_don_vi.hachihi.vn</code>).
                 </p>
               </div>
 
@@ -371,7 +371,7 @@ export const DocumentationView: React.FC<DocumentationViewProps> = ({ showToast 
                   2. Api Secret Key
                 </span>
                 <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Đăng nhập web Dahahi &rarr; <strong>Cài đặt &rarr; Tích hợp API</strong> &rarr; Sao chép mã <strong>Api Secret Key</strong>.
+                  Đăng nhập web Hachihi &rarr; <strong>Cài đặt &rarr; Tích hợp API</strong> &rarr; Sao chép mã <strong>Api Secret Key</strong>.
                 </p>
               </div>
 
@@ -380,7 +380,7 @@ export const DocumentationView: React.FC<DocumentationViewProps> = ({ showToast 
                   3. Mã thiết bị (MachineBoxId)
                 </span>
                 <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Vào menu <strong>Thiết bị</strong> trên web Dahahi, xem cột <em>Tên thiết bị</em> và sao chép mã số ở dòng dưới.
+                  Vào menu <strong>Thiết bị</strong> trên web Hachihi, xem cột <em>Tên thiết bị</em> và sao chép mã số ở dòng dưới.
                 </p>
               </div>
             </div>
@@ -408,10 +408,10 @@ export const DocumentationView: React.FC<DocumentationViewProps> = ({ showToast 
             </div>
             <div>
               <h3 className="font-bold text-lg text-slate-900 dark:text-white">
-                Thư viện SDK Dahahi Face cho Ứng dụng Desktop (C# .NET 4.5.2+)
+                Thư viện SDK Hachihi Face cho Ứng dụng Desktop (C# .NET 4.5.2+)
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Tài liệu tích hợp tệp thư viện <code className="font-mono">Dahahi.SDK.dll</code> và file bản quyền <code className="font-mono">mã_face.jdilic</code>
+                Tài liệu tích hợp tệp thư viện <code className="font-mono">Hachihi.SDK.dll</code> và file bản quyền <code className="font-mono">mã_face.jdilic</code>
               </p>
             </div>
           </div>
@@ -455,11 +455,11 @@ export const DocumentationView: React.FC<DocumentationViewProps> = ({ showToast 
           <div className="flex items-center gap-2 pb-2">
             <AlertTriangle className="w-5 h-5 text-amber-500" />
             <h3 className="font-bold text-base text-slate-900 dark:text-white">
-              Bảng tra cứu mã lỗi thiết bị Dahahi (Error Code Reference)
+              Bảng tra cứu mã lỗi thiết bị Hachihi (Error Code Reference)
             </h3>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Tổng hợp tất cả các mã lỗi trả về từ API và SDK của thiết bị chấm công nhận diện khuôn mặt Dahahi
+            Tổng hợp tất cả các mã lỗi trả về từ API và SDK của thiết bị chấm công nhận diện khuôn mặt Hachihi
           </p>
 
           <div className="overflow-x-auto">
@@ -502,7 +502,7 @@ export const DocumentationView: React.FC<DocumentationViewProps> = ({ showToast 
               </h3>
             </div>
             <span className="text-xs text-slate-400">
-              Kiểm tra nhanh các lệnh POST tới hệ thống Dahahi
+              Kiểm tra nhanh các lệnh POST tới hệ thống Hachihi
             </span>
           </div>
 

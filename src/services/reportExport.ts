@@ -1,5 +1,5 @@
 import type ExcelJS from 'exceljs';
-import { downloadCsv } from './dahahiService';
+import { downloadCsv } from './hachihiService';
 
 /* ------------------------------------------------------------------ */
 /* Mô tả một bảng báo cáo - dùng chung cho mọi mẫu                      */
@@ -55,7 +55,7 @@ export const exportCsv = (t: ReportTable) => {
 export const exportXlsx = async (t: ReportTable) => {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Dahahi Attendance';
+  wb.creator = 'Hachihi Attendance';
   wb.created = new Date();
   const ws = wb.addWorksheet('Báo cáo', {
     views: [{ state: 'frozen', ySplit: 5 }],

@@ -16,7 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { ConnectionSettings, ActiveTab } from '../types/dahahi';
+import { ConnectionSettings, ActiveTab } from '../types/hachihi';
 
 export type { ActiveTab };
 
@@ -99,7 +99,7 @@ export const EnterpriseSidebar: React.FC<EnterpriseSidebarProps> = ({
                 <div className="truncate">
                   <div className="flex items-center gap-1.5">
                     <span className="font-extrabold text-slate-900 dark:text-white tracking-tight text-base">
-                      DAHAHI
+                      HACHIHI
                     </span>
                     <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400">
                       3.0

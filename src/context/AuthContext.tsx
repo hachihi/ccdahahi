@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SystemUser, RoleType, PermissionKey, UserRole } from '../types/dahahi';
+import { SystemUser, RoleType, PermissionKey, UserRole } from '../types/hachihi';
 import { INITIAL_USERS, DEFAULT_ROLES } from '../mock/sampleData';
 
 interface AuthContextType {
@@ -15,9 +15,9 @@ interface AuthContextType {
   updateRolePermissions: (roleId: RoleType, permissions: PermissionKey[]) => void;
 }
 
-const USERS_STORAGE_KEY = 'dahahi_users_v2';
-const CURRENT_USER_KEY = 'dahahi_current_user_v2';
-const ROLES_STORAGE_KEY = 'dahahi_roles_v2';
+const USERS_STORAGE_KEY = 'hachihi_users_v2';
+const CURRENT_USER_KEY = 'hachihi_current_user_v2';
+const ROLES_STORAGE_KEY = 'hachihi_roles_v2';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 

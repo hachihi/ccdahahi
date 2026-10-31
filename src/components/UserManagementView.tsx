@@ -22,10 +22,10 @@ import {
   History,
   Database
 } from 'lucide-react';
-import { SystemUser, RoleType, PermissionKey, AuditLogItem } from '../types/dahahi';
+import { SystemUser, RoleType, PermissionKey, AuditLogItem } from '../types/hachihi';
 import { useAuth } from '../context/AuthContext';
 import { PERMISSION_LIST } from '../mock/sampleData';
-import { DahahiDataService } from '../services/dahahiService';
+import { HachihiDataService } from '../services/hachihiService';
 
 interface UserManagementViewProps {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
@@ -63,7 +63,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ showToas
   const loadAuditLogs = async () => {
     setLoadingAudit(true);
     try {
-      const logs = await DahahiDataService.getAuditLogs();
+      const logs = await HachihiDataService.getAuditLogs();
       setAuditLogs(logs);
     } catch (e: any) {
       showToast('Lỗi tải nhật ký: ' + e.message, 'error');
@@ -368,7 +368,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ showToas
               Bảng ma trận phân quyền chi tiết (Role-Based Access Control)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Quyền hạn áp dụng cho từng vai trò người dùng trong toàn bộ ứng dụng quản lý máy chấm công Dahahi.
+              Quyền hạn áp dụng cho từng vai trò người dùng trong toàn bộ ứng dụng quản lý máy chấm công Hachihi.
             </p>
           </div>
 
@@ -561,7 +561,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ showToas
                 </div>
                 <div className="flex justify-between">
                   <span>Định dạng file:</span>
-                  <span className="font-mono">dahahi_backup_YYYY-MM-DD.json</span>
+                  <span className="font-mono">hachihi_backup_YYYY-MM-DD.json</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Khả năng khôi phục:</span>
@@ -639,7 +639,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ showToas
                   setIsRestoring(true);
                   try {
                     const parsed = JSON.parse(restoreJson);
-                    const res = await DahahiDataService.restoreSystemBackup(parsed);
+                    const res = await HachihiDataService.restoreSystemBackup(parsed);
                     if (res.ok) {
                       showToast(res.message || 'Khôi phục hệ thống thành công!', 'success');
                       setRestoreJson('');

@@ -23,20 +23,20 @@ import {
   UserX,
   RotateCcw
 } from 'lucide-react';
-import { Employee, DahahiMachine, ConnectionSettings, employeeNeedsAttention } from '../types/dahahi';
+import { Employee, HachihiMachine, ConnectionSettings, employeeNeedsAttention } from '../types/hachihi';
 import { useAuth } from '../context/AuthContext';
 import {
-  DahahiDataService,
+  HachihiDataService,
   shrinkImage,
   downloadFaceImage,
   downloadCsv,
   parseCsv
-} from '../services/dahahiService';
+} from '../services/hachihiService';
 import { FaceCameraModal } from './FaceCameraModal';
 
 interface EmployeesViewProps {
   employees: Employee[];
-  machines: DahahiMachine[];
+  machines: HachihiMachine[];
   settings: ConnectionSettings;
   onRefreshData: () => void;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
@@ -140,7 +140,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
     setPullingFaceId(empId);
     showToast(`Đang tải ảnh Face ID cho nhân viên #${empId}...`, 'info');
     try {
-      const res = await DahahiDataService.pullFaceForEmployee(empId, filterMachine !== 'all' ? filterMachine : undefined);
+      const res = await HachihiDataService.pullFaceForEmployee(empId, filterMachine !== 'all' ? filterMachine : undefined);
       if (res && res.ok) {
         onRefreshData();
         showToast(res.message || 'Đã tải thành công ảnh Face ID', 'success');
@@ -161,7 +161,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
     try {
       const optimized = await shrinkImage(file);
       setFormPhoto(optimized);
-      showToast('Đã tối ưu hóa ảnh khuôn mặt theo chuẩn nén Dahahi', 'success');
+      showToast('Đã tối ưu hóa ảnh khuôn mặt theo chuẩn nén Hachihi', 'success');
     } catch (err: any) {
       showToast(err.message || 'Lỗi đọc tệp ảnh', 'error');
     } finally {
@@ -180,7 +180,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
       return;
     }
     if (formName.length > 32) {
-      showToast('Họ tên không được vượt quá 32 ký tự theo chuẩn máy Dahahi', 'error');
+      showToast('Họ tên không được vượt quá 32 ký tự theo chuẩn máy Hachihi', 'error');
       return;
     }
 
@@ -202,7 +202,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
 
     setIsLoading(true);
     try {
-      const res = await DahahiDataService.saveEmployee(payload);
+      const res = await HachihiDataService.saveEmployee(payload);
       if (res && res.ok) {
         onRefreshData();
         setIsModalOpen(false);
@@ -231,7 +231,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
     }
     setIsLoading(true);
     try {
-      let res = await DahahiDataService.deleteEmployee(emp.id);
+      let res = await HachihiDataService.deleteEmployee(emp.id);
       if (res && res.ok && res.pending) {
         const detail = Object.entries(res.machineResults || {})
           .filter(([, v]) => v !== 'OK')
@@ -243,7 +243,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
             'Bấm Hủy để giữ ở trạng thái "Chờ xóa" và thử lại sau.'
         );
         if (forceIt) {
-          res = await DahahiDataService.deleteEmployee(emp.id, true);
+          res = await HachihiDataService.deleteEmployee(emp.id, true);
         }
       }
       onRefreshData();
@@ -270,7 +270,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
   const handleRetryOne = async (emp: Employee) => {
     setIsLoading(true);
     try {
-      const res = await DahahiDataService.retryEmployee(emp.id);
+      const res = await HachihiDataService.retryEmployee(emp.id);
       onRefreshData();
       if (!res.ok) showToast(res.error || 'Không thể thử lại', 'error');
       else if (res.deleted) showToast(`Đã xóa ${emp.name} trên mọi máy`, 'success');
@@ -290,7 +290,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
       let lastRemaining = Infinity;
       let remaining = 0;
       for (let round = 0; round < 20; round++) {
-        const res = await DahahiDataService.retryFailedEmployees(15);
+        const res = await HachihiDataService.retryFailedEmployees(15);
         if (!res.ok) {
           showToast(res.error || 'Không thể thử lại', 'error');
           break;
@@ -323,7 +323,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
     }
     setIsLoading(true);
     try {
-      const res = await DahahiDataService.saveEmployee(emp);
+      const res = await HachihiDataService.saveEmployee(emp);
       if (res && res.ok && res.failedMachines && res.failedMachines.length > 0) {
         onRefreshData();
         showToast(`Đẩy ${emp.name} thất bại ở ${res.failedMachines.length} máy: ${Object.values(res.pushResults || {}).filter(v => v !== 'OK')[0] || 'lỗi không rõ'}`, 'error');
@@ -350,7 +350,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
     setIsLoading(true);
     showToast(`Đang tải danh sách & Face ID từ máy ${targetBox}...`, 'info');
     try {
-      const res = await DahahiDataService.pullEmployeesFromMachine(targetBox);
+      const res = await HachihiDataService.pullEmployeesFromMachine(targetBox);
       if (res && res.ok) {
         onRefreshData();
         showToast(res.message || `Đã tải về ${res.count} nhân sự`, 'success');
@@ -364,17 +364,17 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
     }
   };
 
-  // Download / Pull from Cloud Dahahi API v2.0
+  // Download / Pull from Cloud Hachihi API v2.0
   const handlePullFromCloud = async () => {
     setIsLoading(true);
-    showToast('Đang tải danh sách nhân sự từ Cloud Dahahi (API v2.0.0)...', 'info');
+    showToast('Đang tải danh sách nhân sự từ Cloud Hachihi (API v2.0.0)...', 'info');
     try {
-      const res = await DahahiDataService.pullEmployeesFromCloud();
+      const res = await HachihiDataService.pullEmployeesFromCloud();
       if (res && res.ok) {
         onRefreshData();
         showToast(res.message || `Đã tải về ${res.count} nhân sự từ Cloud`, 'success');
       } else {
-        showToast(res?.error || 'Lỗi tải danh sách từ Cloud Dahahi', 'error');
+        showToast(res?.error || 'Lỗi tải danh sách từ Cloud Hachihi', 'error');
       }
     } catch (err: any) {
       showToast(err.message || 'Lỗi kết nối', 'error');
@@ -411,7 +411,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
       e.to || '',
       e.machines.join('|')
     ]);
-    downloadCsv('danh_sach_nhan_vien_dahahi.csv', headers, rows);
+    downloadCsv('danh_sach_nhan_vien_hachihi.csv', headers, rows);
     showToast(`Đã xuất ${employees.length} nhân viên ra file CSV`, 'success');
   };
 
@@ -464,7 +464,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
           ? machinesStr.split('|').filter(Boolean)
           : machines.map(m => m.MachineBoxId);
 
-        await DahahiDataService.saveEmployee({
+        await HachihiDataService.saveEmployee({
           id,
           code,
           name,
@@ -509,8 +509,8 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
           targetEmp.photo = optimizedPhoto;
           targetEmp.hasPhoto = true;
           targetEmp.registeredFace = true;
-          // Save and push to Dahahi machine
-          await DahahiDataService.saveEmployee(targetEmp);
+          // Save and push to Hachihi machine
+          await HachihiDataService.saveEmployee(targetEmp);
           matched++;
         } catch {
           skipped.push(file.name);
@@ -626,7 +626,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
             onClick={handlePullFromCloud}
             disabled={isLoading}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-medium transition disabled:opacity-50"
-            title="Lấy danh bạ từ Dahahi Cloud API v2.0"
+            title="Lấy danh bạ từ Hachihi Cloud API v2.0"
           >
             <CloudDownload className="w-4 h-4 text-emerald-500" />
             Tải từ Cloud
@@ -801,15 +801,15 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
                               <AlertCircle className="w-3 h-3" /> Chờ xóa trên máy
                             </span>
                           )}
-                          {!emp.pendingDelete && Object.values(emp.sync || {}).some(x => x.status === 'failed') && (
+                          {!emp.pendingDelete && Object.values(emp.sync || {}).some((x: any) => x?.status === 'failed') && (
                             <span
                               className="inline-flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400 font-semibold"
                               title={Object.entries(emp.sync || {})
-                                .filter(([, x]) => x.status === 'failed')
-                                .map(([m, x]) => `${machines.find(y => y.MachineBoxId === m)?.MachineName || m}: ${x.error || 'lỗi'}`)
+                                .filter(([, x]: [string, any]) => x?.status === 'failed')
+                                .map(([m, x]: [string, any]) => `${machines.find(y => y.MachineBoxId === m)?.MachineName || m}: ${x?.error || 'lỗi'}`)
                                 .join('\n')}
                             >
-                              <AlertCircle className="w-3 h-3" /> Lỗi đồng bộ {Object.values(emp.sync || {}).filter(x => x.status === 'failed').length} máy
+                              <AlertCircle className="w-3 h-3" /> Lỗi đồng bộ {Object.values(emp.sync || {}).filter((x: any) => x?.status === 'failed').length} máy
                             </span>
                           )}
                         </div>
@@ -879,7 +879,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
                             onClick={() => handlePullSingleFace(emp.id)}
                             disabled={pullingFaceId === emp.id}
                             className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition disabled:opacity-50"
-                            title="Tải lại ảnh Face ID từ máy chấm công hoặc Cloud Dahahi"
+                            title="Tải lại ảnh Face ID từ máy chấm công hoặc Cloud Hachihi"
                           >
                             <RefreshCw className={`w-4 h-4 ${pullingFaceId === emp.id ? 'animate-spin text-indigo-600' : ''}`} />
                           </button>
@@ -952,7 +952,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
                     {editingEmp ? 'Chỉnh sửa nhân viên & Face ID' : 'Thêm mới nhân viên & Face ID'}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Khai báo thông tin & nạp ảnh khuôn mặt chuẩn máy chấm công Dahahi
+                    Khai báo thông tin & nạp ảnh khuôn mặt chuẩn máy chấm công Hachihi
                   </p>
                 </div>
               </div>
@@ -980,7 +980,7 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
                     Ảnh khuôn mặt (Face ID)
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Hệ thống tự động nén về &le;480px JPEG để nạp vào ROM máy Dahahi.
+                    Hệ thống tự động nén về &le;480px JPEG để nạp vào ROM máy Hachihi.
                   </p>
                   <div className="mt-2.5 flex flex-wrap items-center justify-center sm:justify-start gap-2">
                     <button

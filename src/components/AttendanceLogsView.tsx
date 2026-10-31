@@ -12,13 +12,13 @@ import {
   Flame,
   FileSpreadsheet
 } from 'lucide-react';
-import { AttendanceLog, DahahiMachine, Employee, ConnectionSettings } from '../types/dahahi';
+import { AttendanceLog, HachihiMachine, Employee, ConnectionSettings } from '../types/hachihi';
 import { useAuth } from '../context/AuthContext';
-import { DahahiDataService, downloadCsv, toDahahiTimeStr, fromDahahiTimeStr } from '../services/dahahiService';
+import { HachihiDataService, downloadCsv, toHachihiTimeStr, fromHachihiTimeStr } from '../services/hachihiService';
 
 interface AttendanceLogsViewProps {
   logs: AttendanceLog[];
-  machines: DahahiMachine[];
+  machines: HachihiMachine[];
   employees: Employee[];
   settings: ConnectionSettings;
   onRefreshData: () => void;
@@ -54,7 +54,7 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
     return matchDate && matchMachine && matchPid;
   });
 
-  // Sync logs from Dahahi machine via /api/facereg/checkinhis
+  // Sync logs from Hachihi machine via /api/facereg/checkinhis
   const handleSyncFromDevice = async () => {
     const targetMachines = selectedMachine === 'all'
       ? machines.map(m => m.MachineBoxId)
@@ -67,7 +67,7 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
 
     setIsSyncing(true);
     try {
-      const res = await DahahiDataService.syncLogsFromMachine(
+      const res = await HachihiDataService.syncLogsFromMachine(
         fromDate,
         toDate,
         selectedMachine !== 'all' ? selectedMachine : undefined
@@ -196,7 +196,7 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
           {canSync && (
             <button
               onClick={async () => {
-                const res = await DahahiDataService.deduplicateAttendance();
+                const res = await HachihiDataService.deduplicateAttendance();
                 if (res.ok) {
                   onRefreshData();
                   showToast(res.message || `Đã loại bỏ ${res.removedCount} bản ghi trùng`, 'success');

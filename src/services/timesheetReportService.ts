@@ -1,4 +1,4 @@
-import { AttendanceLog, DahahiMachine, Employee } from '../types/dahahi';
+import { AttendanceLog, HachihiMachine, Employee } from '../types/hachihi';
 import { WorkConfig } from './workConfig';
 import { PayrollRow, computeMonth, dedupeLogs, summarizePayroll } from './workdayEngine';
 import { formatDateVi } from './timeUtils';
@@ -59,7 +59,7 @@ const matches = (department: string, code: string, name: string, f: ReportFilter
 export const buildMachineDetailReport = (
   logs: AttendanceLog[],
   employees: Employee[],
-  machines: DahahiMachine[],
+  machines: HachihiMachine[],
   filter: ReportFilter
 ): { rows: MachineDetailRow[]; maxPunches: number } => {
   const empMap = new Map(employees.map(e => [e.id, e]));

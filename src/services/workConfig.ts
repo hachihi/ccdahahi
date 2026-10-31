@@ -1,4 +1,4 @@
-import { Employee } from '../types/dahahi';
+import { Employee } from '../types/hachihi';
 import { overlap, toMins } from './timeUtils';
 
 /* ------------------------------------------------------------------ */
@@ -86,7 +86,7 @@ export const makeDefaultConfig = (start = '08:30', end = '17:30'): WorkConfig =>
 /* Lưu trữ (tách riêng để sau này đổi sang API / cơ sở dữ liệu)         */
 /* ------------------------------------------------------------------ */
 
-const STORAGE_KEY = 'dahahi_work_config_v1';
+const STORAGE_KEY = 'hachihi_work_config_v1';
 
 export const loadWorkConfig = (fallbackStart?: string, fallbackEnd?: string): WorkConfig => {
   try {
