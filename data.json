@@ -1,0 +1,1020 @@
+{
+  "emp": {
+    "1": {
+      "id": "1",
+      "name": "Nguyen Duy Linh",
+      "machines": [
+        "1605055"
+      ],
+      "code": "1",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/image20260917152059625_ca895032059.png",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "2": {
+      "id": "2",
+      "name": "Tran Thi Thu Suong",
+      "machines": [
+        "1605055"
+      ],
+      "code": "2",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/image20260917114531564_6e050114532.png",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "3": {
+      "id": "3",
+      "name": "Nguyen Van Ha",
+      "machines": [
+        "1605055"
+      ],
+      "code": "3",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/image20260917151604210_fd616031606.png",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "4": {
+      "id": "4",
+      "name": "Nguyen Thanh Lam",
+      "machines": [
+        "1605055"
+      ],
+      "code": "4",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/image20260917115256714_9ab8b115257.png",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "10": {
+      "id": "10",
+      "name": "Dinh Tuan Anh",
+      "machines": [
+        "1605055"
+      ],
+      "code": "10",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/image20260917115413550_32c72115414.png",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "83": {
+      "id": "83",
+      "name": "Tran Thi Thu Suong",
+      "machines": [
+        "1605055"
+      ],
+      "code": "83",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20261022/Rec1605055708084319_078bd023906.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "88": {
+      "id": "88",
+      "name": "Le Hai Dang",
+      "machines": [
+        "1605055"
+      ],
+      "code": "88",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/179075142386922729958497513587_b0d44015728.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "98": {
+      "id": "98",
+      "name": "Ngo Ngoc Thanh",
+      "machines": [
+        "1605055"
+      ],
+      "code": "98",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/Rec1605055215115043_fd891011041.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "128": {
+      "id": "128",
+      "name": "Nguyen Duy Linh",
+      "machines": [
+        "1605055"
+      ],
+      "code": "128",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/Rec1605055211083345_a90d2013211.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "148": {
+      "id": "148",
+      "name": "Dinh Tuan Anh",
+      "machines": [
+        "1605055"
+      ],
+      "code": "148",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/Rec1605055272173316_680b5042212.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "171": {
+      "id": "171",
+      "name": "Nguyen Thanh Lam",
+      "machines": [
+        "1605055"
+      ],
+      "code": "171",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/179074904270722729958497513587_d69e7011845.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "172": {
+      "id": "172",
+      "name": "Nguyen Van Ha",
+      "machines": [
+        "1605055"
+      ],
+      "code": "172",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/Rec1605055200082413_a6fee012113.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "243": {
+      "id": "243",
+      "name": "Truong Nguyen Quang Huy",
+      "machines": [
+        "1605055"
+      ],
+      "code": "243",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/179074051888022729958497513587_db8c3113328.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "248": {
+      "id": "248",
+      "name": "Pham Minh Anh",
+      "machines": [
+        "1605055"
+      ],
+      "code": "248",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20261007/179128233739522729958497513587_07f65010958.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62b5d64abd653f5adad8": {
+      "id": "6aab62b5d64abd653f5adad8",
+      "name": "Cao Chi Duc",
+      "machines": [
+        "1605055"
+      ],
+      "code": "227",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/179076188546573077042487714096_78d65045330.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62b6d64abd653f5adada": {
+      "id": "6aab62b6d64abd653f5adada",
+      "name": "Hoang Huy Hai",
+      "machines": [
+        "1605055"
+      ],
+      "code": "84",
+      "department": "",
+      "position": "",
+      "phone": "0918001944",
+      "email": "",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_84_4_264617_104653.jpg",
+      "hasPhoto": true,
+      "registeredFace": true,
+      "from": "",
+      "to": "",
+      "host": "https://hachihi.dahahi.vn",
+      "secret": "hmwonzxnyushqfhwtyoj"
+    },
+    "6aab62b7d64abd653f5adadc": {
+      "id": "6aab62b7d64abd653f5adadc",
+      "name": "Ho Phi Hai",
+      "machines": [
+        "1605055"
+      ],
+      "code": "81",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/image20260917104814958_fc319104817.png",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62b8d64abd653f5adae0": {
+      "id": "6aab62b8d64abd653f5adae0",
+      "name": "Ho Thanh Son",
+      "machines": [
+        "1605055"
+      ],
+      "code": "97",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_97_6_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62bad64abd653f5adae2": {
+      "id": "6aab62bad64abd653f5adae2",
+      "name": "Le Hai Dang",
+      "machines": [
+        "1605055"
+      ],
+      "code": "6aab62bad64abd653f5adae2",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_11_7_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62bbd64abd653f5adae4": {
+      "id": "6aab62bbd64abd653f5adae4",
+      "name": "Le Nguyen Thuy Vy",
+      "machines": [
+        "1605055"
+      ],
+      "code": "223",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20261001/179082035823250307823648745172_ea3e1090714.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62bcd64abd653f5adae8": {
+      "id": "6aab62bcd64abd653f5adae8",
+      "name": "Le Ngoc Thang",
+      "machines": [
+        "1605055"
+      ],
+      "code": "237",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_237_9_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62bdd64abd653f5adaea": {
+      "id": "6aab62bdd64abd653f5adaea",
+      "name": "Le Tuan Anh",
+      "machines": [
+        "1605055"
+      ],
+      "code": "122",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/179075106980122729958497513587_49538015125.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62bed64abd653f5adaec": {
+      "id": "6aab62bed64abd653f5adaec",
+      "name": "Mai Duc Thanh",
+      "machines": [
+        "1605055"
+      ],
+      "code": "113",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_113_11_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62bfd64abd653f5adaee": {
+      "id": "6aab62bfd64abd653f5adaee",
+      "name": "Nguyen Quang Viet",
+      "machines": [
+        "1605055"
+      ],
+      "code": "182",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_182_12_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62c0d64abd653f5adaf2": {
+      "id": "6aab62c0d64abd653f5adaf2",
+      "name": "Nguyen Thanh Cuong",
+      "machines": [
+        "1605055"
+      ],
+      "code": "86",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/Rec1605055187090312_c558e014630.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62c1d64abd653f5adaf4": {
+      "id": "6aab62c1d64abd653f5adaf4",
+      "name": "Nguyen Thu Phuong",
+      "machines": [
+        "1605055"
+      ],
+      "code": "130",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/179075055096422729958497513587_511d4014252.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62c2d64abd653f5adaf6": {
+      "id": "6aab62c2d64abd653f5adaf6",
+      "name": "Nguyen Thi Thu Phuong",
+      "machines": [
+        "1605055"
+      ],
+      "code": "80",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_80_15_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62c3d64abd653f5adaf8": {
+      "id": "6aab62c3d64abd653f5adaf8",
+      "name": "Nguyen Trong Trung",
+      "machines": [
+        "1605055"
+      ],
+      "code": "235",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20261005/20261005140546_075e1024925.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62c4d64abd653f5adafc": {
+      "id": "6aab62c4d64abd653f5adafc",
+      "name": "Nguyen Dang Khoi",
+      "machines": [
+        "1605055"
+      ],
+      "code": "6aab62c4d64abd653f5adafc",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_247_17_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62c5d64abd653f5adafe": {
+      "id": "6aab62c5d64abd653f5adafe",
+      "name": "Quach Hong Nhung",
+      "machines": [
+        "1605055"
+      ],
+      "code": "228",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_228_18_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62c6d64abd653f5adb00": {
+      "id": "6aab62c6d64abd653f5adb00",
+      "name": "Than Hoang Loc",
+      "machines": [
+        "1605055"
+      ],
+      "code": "234",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_234_19_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62c8d64abd653f5adb07": {
+      "id": "6aab62c8d64abd653f5adb07",
+      "name": "Tu Nguyen Tri",
+      "machines": [
+        "1605055"
+      ],
+      "code": "101",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_101_21_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62c9d64abd653f5adb09": {
+      "id": "6aab62c9d64abd653f5adb09",
+      "name": "Vo Le Dai",
+      "machines": [
+        "1605055"
+      ],
+      "code": "106",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_106_22_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62cad64abd653f5adb0b": {
+      "id": "6aab62cad64abd653f5adb0b",
+      "name": "Vo Ngoc Dao",
+      "machines": [
+        "1605055"
+      ],
+      "code": "221",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_221_23_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62cbd64abd653f5adb0d": {
+      "id": "6aab62cbd64abd653f5adb0d",
+      "name": "Dinh Le Nhat Tan",
+      "machines": [
+        "1605055"
+      ],
+      "code": "194",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260917/ExtractExcel_194_24_264617_104654.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "6aab62ccd64abd653f5adb0f": {
+      "id": "6aab62ccd64abd653f5adb0f",
+      "name": "Dinh Quynh Nhu",
+      "machines": [
+        "1605055"
+      ],
+      "code": "220",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20261022/179265441161022729958497513587_e11b1023430.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    },
+    "EMP0000042": {
+      "id": "EMP0000042",
+      "name": "Truong Nguyen Quang Huy",
+      "machines": [
+        "1605055"
+      ],
+      "code": "EMP0000042",
+      "photo": "https://hachihi.dahahi.vn/Images/hachihi.dahahi.vn/Upload/20260930/179074051888022729958497513587_668a0110036.jpg",
+      "hasPhoto": true,
+      "registeredFace": true
+    }
+  },
+  "logs": [
+    {
+      "id": "log-1793469012491-355",
+      "pid": "172",
+      "name": "Nguyen Van Ha",
+      "time": "2026-10-31 12:43:49",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-8633",
+      "pid": "243",
+      "name": "Truong Nguyen Quang Huy",
+      "time": "2026-10-31 12:36:12",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-244",
+      "pid": "6aab62ccd64abd653f5adb0f",
+      "name": "Dinh Quynh Nhu",
+      "time": "2026-10-31 12:34:53",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-7324",
+      "pid": "248",
+      "name": "Pham Minh Anh",
+      "time": "2026-10-31 12:34:46",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-4474",
+      "pid": "6aab62c5d64abd653f5adafe",
+      "name": "Quach Hong Nhung",
+      "time": "2026-10-31 12:34:00",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-842",
+      "pid": "6aab62c6d64abd653f5adb00",
+      "name": "Than Hoang Loc",
+      "time": "2026-10-31 12:33:47",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-4808",
+      "pid": "128",
+      "name": "Nguyen Duy Linh",
+      "time": "2026-10-31 12:33:25",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-3190",
+      "pid": "98",
+      "name": "Ngo Ngoc Thanh",
+      "time": "2026-10-31 12:32:11",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-6782",
+      "pid": "171",
+      "name": "Nguyen Thanh Lam",
+      "time": "2026-10-31 12:31:19",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-4564",
+      "pid": "6aab62c6d64abd653f5adb00",
+      "name": "Than Hoang Loc",
+      "time": "2026-10-31 08:46:10",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-7430",
+      "pid": "6aab62c5d64abd653f5adafe",
+      "name": "Quach Hong Nhung",
+      "time": "2026-10-31 08:36:47",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-6015",
+      "pid": "171",
+      "name": "Nguyen Thanh Lam",
+      "time": "2026-10-31 08:34:25",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-9014",
+      "pid": "243",
+      "name": "Truong Nguyen Quang Huy",
+      "time": "2026-10-31 08:30:52",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-5450",
+      "pid": "6aab62ccd64abd653f5adb0f",
+      "name": "Dinh Quynh Nhu",
+      "time": "2026-10-31 08:30:45",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-5135",
+      "pid": "98",
+      "name": "Ngo Ngoc Thanh",
+      "time": "2026-10-31 08:29:04",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-1992",
+      "pid": "128",
+      "name": "Nguyen Duy Linh",
+      "time": "2026-10-31 08:28:19",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-1438",
+      "pid": "248",
+      "name": "Pham Minh Anh",
+      "time": "2026-10-31 08:27:26",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-2327",
+      "pid": "172",
+      "name": "Nguyen Van Ha",
+      "time": "2026-10-31 08:26:55",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-2604",
+      "pid": "148",
+      "name": "Dinh Tuan Anh",
+      "time": "2026-10-31 08:25:14",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-5177",
+      "pid": "83",
+      "name": "Tran Thi Thu Suong",
+      "time": "2026-10-30 17:36:56",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-1039",
+      "pid": "6aab62ccd64abd653f5adb0f",
+      "name": "Dinh Quynh Nhu",
+      "time": "2026-10-30 17:35:29",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-9372",
+      "pid": "148",
+      "name": "Dinh Tuan Anh",
+      "time": "2026-10-30 17:35:10",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-1695",
+      "pid": "248",
+      "name": "Pham Minh Anh",
+      "time": "2026-10-30 17:35:01",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-2842",
+      "pid": "243",
+      "name": "Truong Nguyen Quang Huy",
+      "time": "2026-10-30 17:34:48",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-4438",
+      "pid": "6aab62c6d64abd653f5adb00",
+      "name": "Than Hoang Loc",
+      "time": "2026-10-30 17:34:09",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-2836",
+      "pid": "128",
+      "name": "Nguyen Duy Linh",
+      "time": "2026-10-30 17:33:29",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-1240",
+      "pid": "6aab62c5d64abd653f5adafe",
+      "name": "Quach Hong Nhung",
+      "time": "2026-10-30 17:33:24",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-894",
+      "pid": "6aab62c5d64abd653f5adafe",
+      "name": "Quach Hong Nhung",
+      "time": "2026-10-30 08:42:59",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-2088",
+      "pid": "6aab62ccd64abd653f5adb0f",
+      "name": "Dinh Quynh Nhu",
+      "time": "2026-10-30 08:38:14",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-4890",
+      "pid": "6aab62c6d64abd653f5adb00",
+      "name": "Than Hoang Loc",
+      "time": "2026-10-30 08:35:41",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-8642",
+      "pid": "171",
+      "name": "Nguyen Thanh Lam",
+      "time": "2026-10-30 08:34:32",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-8894",
+      "pid": "128",
+      "name": "Nguyen Duy Linh",
+      "time": "2026-10-30 08:33:06",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-4369",
+      "pid": "172",
+      "name": "Nguyen Van Ha",
+      "time": "2026-10-30 08:31:40",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-2971",
+      "pid": "83",
+      "name": "Tran Thi Thu Suong",
+      "time": "2026-10-30 08:30:41",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-5380",
+      "pid": "243",
+      "name": "Truong Nguyen Quang Huy",
+      "time": "2026-10-30 08:30:18",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-5416",
+      "pid": "98",
+      "name": "Ngo Ngoc Thanh",
+      "time": "2026-10-30 08:29:11",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-2510",
+      "pid": "248",
+      "name": "Pham Minh Anh",
+      "time": "2026-10-30 08:29:00",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-3484",
+      "pid": "248",
+      "name": "Pham Minh Anh",
+      "time": "2026-10-30 08:28:58",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    },
+    {
+      "id": "log-1793469012491-3146",
+      "pid": "148",
+      "name": "Dinh Tuan Anh",
+      "time": "2026-10-30 07:58:48",
+      "m": "1605055",
+      "temp": null,
+      "similarity": 98.5
+    }
+  ],
+  "seen": {
+    "1605055": "2026-10-31 17:50:11"
+  },
+  "shifts": [
+    {
+      "code": "HC",
+      "name": "Hành chính (08:00 - 17:00)",
+      "startTime": "08:00",
+      "endTime": "17:00",
+      "breakStart": "12:00",
+      "breakEnd": "13:00",
+      "graceLateMinutes": 15,
+      "graceEarlyMinutes": 15,
+      "overtimeAfterMinutes": 30,
+      "standardWorkHours": 8,
+      "isDefault": true,
+      "applicableDepartments": []
+    },
+    {
+      "code": "CA1",
+      "name": "Ca Sáng (06:00 - 14:00)",
+      "startTime": "06:00",
+      "endTime": "14:00",
+      "breakStart": "10:00",
+      "breakEnd": "10:30",
+      "graceLateMinutes": 10,
+      "graceEarlyMinutes": 10,
+      "overtimeAfterMinutes": 30,
+      "standardWorkHours": 8,
+      "isDefault": false,
+      "applicableDepartments": [
+        "Sản xuất",
+        "Kho vận"
+      ]
+    },
+    {
+      "code": "CA2",
+      "name": "Ca Chiều (14:00 - 22:00)",
+      "startTime": "14:00",
+      "endTime": "22:00",
+      "breakStart": "18:00",
+      "breakEnd": "18:30",
+      "graceLateMinutes": 10,
+      "graceEarlyMinutes": 10,
+      "overtimeAfterMinutes": 30,
+      "standardWorkHours": 8,
+      "isDefault": false,
+      "applicableDepartments": [
+        "Sản xuất",
+        "Kỹ thuật"
+      ]
+    }
+  ],
+  "timesheetTemplates": [
+    {
+      "id": "tpl-device-detail",
+      "name": "Mẫu 1: Chi tiết theo máy (Lần 1...N)",
+      "description": "Báo cáo chi tiết theo máy, cứ mỗi lần chấm trong ngày là thêm 1 cột",
+      "baseType": "device_detail",
+      "columns": [
+        {
+          "key": "employeeCode",
+          "label": "Mã NV",
+          "visible": true,
+          "order": 1
+        },
+        {
+          "key": "employeeName",
+          "label": "Tên NV",
+          "visible": true,
+          "order": 2
+        },
+        {
+          "key": "date",
+          "label": "Ngày",
+          "visible": true,
+          "order": 3
+        },
+        {
+          "key": "machine",
+          "label": "Máy",
+          "visible": true,
+          "order": 4
+        },
+        {
+          "key": "punches",
+          "label": "Lần 1, Lần 2, Lần 3...",
+          "visible": true,
+          "order": 5
+        }
+      ],
+      "isDefault": true,
+      "createdAt": "2026-01-01 00:00:00"
+    },
+    {
+      "id": "tpl-shift-detail",
+      "name": "Mẫu 2: Chi tiết theo ca (MIN/MAX/Công)",
+      "description": "STT, Mã NV, Họ tên, Phòng ban, Ngày, Vào MIN, Ra MAX, Mã Ca, Giờ Vào Chuẩn, Giờ Ra Chuẩn, Phút Trễ, Phút Sớm, Giờ công",
+      "baseType": "shift_detail",
+      "columns": [
+        {
+          "key": "stt",
+          "label": "STT",
+          "visible": true,
+          "order": 1
+        },
+        {
+          "key": "employeeCode",
+          "label": "Mã NV",
+          "visible": true,
+          "order": 2
+        },
+        {
+          "key": "employeeName",
+          "label": "Họ và tên",
+          "visible": true,
+          "order": 3
+        },
+        {
+          "key": "department",
+          "label": "Phòng ban",
+          "visible": true,
+          "order": 4
+        },
+        {
+          "key": "date",
+          "label": "Ngày",
+          "visible": true,
+          "order": 5
+        },
+        {
+          "key": "minIn",
+          "label": "Vào Sớm Nhất (MIN)",
+          "visible": true,
+          "order": 6
+        },
+        {
+          "key": "maxOut",
+          "label": "Ra Muộn Nhất (MAX)",
+          "visible": true,
+          "order": 7
+        },
+        {
+          "key": "shiftCode",
+          "label": "Mã Ca",
+          "visible": true,
+          "order": 8
+        },
+        {
+          "key": "standardIn",
+          "label": "Giờ Vào Chuẩn",
+          "visible": true,
+          "order": 9
+        },
+        {
+          "key": "standardOut",
+          "label": "Giờ Ra Chuẩn",
+          "visible": true,
+          "order": 10
+        },
+        {
+          "key": "lateMinutes",
+          "label": "Phút vào Trễ",
+          "visible": true,
+          "order": 11
+        },
+        {
+          "key": "earlyMinutes",
+          "label": "Phút về Sớm",
+          "visible": true,
+          "order": 12
+        },
+        {
+          "key": "workHours",
+          "label": "Giờ công",
+          "visible": true,
+          "order": 13
+        }
+      ],
+      "isDefault": true,
+      "createdAt": "2026-01-01 00:00:00"
+    },
+    {
+      "id": "tpl-monthly-matrix",
+      "name": "Mẫu 3: Tổng hợp tháng (Ma trận ngày 1-31)",
+      "description": "Bảng công ma trận cả tháng theo từng nhân viên, tổng ngày công và số phút đi muộn",
+      "baseType": "monthly_matrix",
+      "columns": [
+        {
+          "key": "code",
+          "label": "Mã NV",
+          "visible": true,
+          "order": 1
+        },
+        {
+          "key": "name",
+          "label": "Họ tên",
+          "visible": true,
+          "order": 2
+        },
+        {
+          "key": "department",
+          "label": "Phòng ban",
+          "visible": true,
+          "order": 3
+        },
+        {
+          "key": "matrix",
+          "label": "Ngày 1 - 31",
+          "visible": true,
+          "order": 4
+        },
+        {
+          "key": "workDays",
+          "label": "Tổng ngày công",
+          "visible": true,
+          "order": 5
+        },
+        {
+          "key": "hours",
+          "label": "Tổng giờ",
+          "visible": true,
+          "order": 6
+        },
+        {
+          "key": "late",
+          "label": "Lượt trễ",
+          "visible": true,
+          "order": 7
+        }
+      ],
+      "isDefault": true,
+      "createdAt": "2026-01-01 00:00:00"
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "audit-1793470344289-f3m6j",
+      "timestamp": "2026-10-31 18:12:24",
+      "userName": "Admin",
+      "userRole": "SUPER_ADMIN",
+      "action": "DEDUPLICATE_LOGS",
+      "target": "Nhật ký chấm công",
+      "status": "SUCCESS",
+      "details": "Đã lọc bỏ 6 bản ghi trùng lặp"
+    }
+  ],
+  "syncHistory": []
+}

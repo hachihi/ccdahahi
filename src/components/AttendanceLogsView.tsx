@@ -193,6 +193,25 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
             </button>
           )}
 
+          {canSync && (
+            <button
+              onClick={async () => {
+                const res = await DahahiDataService.deduplicateAttendance();
+                if (res.ok) {
+                  onRefreshData();
+                  showToast(res.message || `Đã loại bỏ ${res.removedCount} bản ghi trùng`, 'success');
+                } else {
+                  showToast(res.error || 'Lỗi khi lọc trùng dữ liệu', 'error');
+                }
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs sm:text-sm font-semibold transition"
+              title="Loại bỏ các lần chấm lặp lại liên tiếp trong cùng 1 phút"
+            >
+              <Filter className="w-4 h-4" />
+              Lọc trùng dữ liệu
+            </button>
+          )}
+
           <button
             onClick={handleExportCsv}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition"
@@ -202,6 +221,7 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
           </button>
         </div>
       </div>
+
 
       {/* Table */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">

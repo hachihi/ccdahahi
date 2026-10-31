@@ -22,6 +22,8 @@ import { DahahiMachine, Employee, AttendanceLog, ConnectionSettings } from '../t
 import { useAuth } from '../context/AuthContext';
 import { DahahiDataService } from '../services/dahahiService';
 import { ActiveTab } from './Header';
+import { KPIDashboard } from './KPIDashboard';
+
 
 interface DashboardViewProps {
   machines: DahahiMachine[];
@@ -182,132 +184,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Machines */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Máy chấm công
-            </span>
-            <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-              <HardDrive className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
-              {machines.length}
-            </span>
-            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center">
-              <CheckCircle2 className="w-3.5 h-3.5 mr-0.5 inline" />
-              {machines.length > 0 ? `${machines.length} Online` : 'Chưa có máy'}
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 truncate">
-            {machines.map(m => m.MachineBoxId).join(', ') || 'Chưa kết nối máy nào'}
-          </p>
-          <button
-            onClick={() => setActiveTab('devices')}
-            className="mt-3 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-          >
-            Quản lý thiết bị <ArrowUpRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
+      {/* Recharts Visual KPI Dashboard */}
+      <KPIDashboard
+        machines={machines}
+        employees={employees}
+        logs={logs}
+        settings={settings}
+        onRefresh={onRefreshData}
+      />
 
-        {/* Card 2: Employees */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Tổng nhân viên
-            </span>
-            <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-              <Users className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
-              {employees.length}
-            </span>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              hồ sơ
-            </span>
-          </div>
-          <div className="mt-2 flex items-center gap-3 text-xs">
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-              <UserCheck className="w-3.5 h-3.5" />
-              {registeredFaceCount} có Face ID
-            </span>
-            <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
-              <UserX className="w-3.5 h-3.5" />
-              {noFaceCount} chưa ảnh
-            </span>
-          </div>
-          <button
-            onClick={() => setActiveTab('employees')}
-            className="mt-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            Danh sách nhân viên <ArrowUpRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Card 3: Today Attendance */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Có mặt hôm nay
-            </span>
-            <div className="p-2.5 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400">
-              <Calendar className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
-              {checkedInCount}
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              / {employees.length} nhân sự
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            Tổng cộng: <strong className="text-slate-800 dark:text-slate-200">{todayLogs.length}</strong> lượt quẹt mặt
-          </p>
-          <button
-            onClick={() => setActiveTab('logs')}
-            className="mt-3 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1"
-          >
-            Xem lịch sử hôm nay <ArrowUpRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Card 4: Punctuality */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Đúng giờ / Đi muộn
-            </span>
-            <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
-              {onTimeToday}
-            </span>
-            <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">
-              ({lateToday} muộn)
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            Mốc quy định: <strong className="text-slate-700 dark:text-slate-300">{settings.workStartTime || '08:30'}</strong>
-          </p>
-          <button
-            onClick={() => setActiveTab('report')}
-            className="mt-3 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
-          >
-            Bảng công chi tiết <ArrowUpRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
 
       {/* Main Row: Recent Logs + Devices overview */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

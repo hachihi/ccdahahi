@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   HardDrive,
   Wifi,
+  WifiOff,
   Plus,
   RefreshCw,
   Copy,
@@ -18,9 +19,15 @@ import {
   Clock,
   Zap,
   Power,
-  ShieldCheck
+  ShieldCheck,
+  Bookmark,
+  BookmarkPlus,
+  BookmarkCheck,
+  Save,
+  Layers,
+  Edit3
 } from 'lucide-react';
-import { DahahiMachine, ConnectionSettings, AutoSyncConfig } from '../types/dahahi';
+import { DahahiMachine, ConnectionSettings, AutoSyncConfig, SavedDeviceProfile } from '../types/dahahi';
 import { useAuth } from '../context/AuthContext';
 import { DahahiDataService } from '../services/dahahiService';
 
@@ -47,8 +54,17 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   const [hostUrl, setHostUrl] = useState(settings.host || '');
   const [secretKey, setSecretKey] = useState(settings.secretKey || '');
   const [machineSerial, setMachineSerial] = useState(settings.serial || '');
+  const [appKey, setAppKey] = useState(settings.appKey || 'k77hcPwEXB4LTdJv96mz');
   const [isConnecting, setIsConnecting] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Saved machine profiles state (Lưu lại thông số theo danh sách máy để dùng cho lần sau)
+  const [savedProfiles, setSavedProfiles] = useState<SavedDeviceProfile[]>([]);
+  const [saveToProfileList, setSaveToProfileList] = useState(true);
+  const [selectedQuickProfileId, setSelectedQuickProfileId] = useState('');
+  const [connectingProfileId, setConnectingProfileId] = useState<string | null>(null);
+  const [disconnectingBoxId, setDisconnectingBoxId] = useState<string | null>(null);
 
   // Auto-sync configuration state
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(settings.autoSync?.enabled ?? true);
@@ -58,6 +74,20 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   const [isSavingAutoSync, setIsSavingAutoSync] = useState(false);
   const [isTriggeringSync, setIsTriggeringSync] = useState(false);
   const [autoSyncStatus, setAutoSyncStatus] = useState<AutoSyncConfig | undefined>(settings.autoSync);
+
+  // Load saved device profiles from service
+  const loadProfiles = useCallback(async () => {
+    try {
+      const list = await DahahiDataService.getDeviceProfiles();
+      setSavedProfiles(list);
+    } catch (e) {
+      console.warn('Error loading device profiles:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
 
   useEffect(() => {
     if (settings.autoSync) {
@@ -79,6 +109,66 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   const [clearTargetBox, setClearTargetBox] = useState<string | null>(null);
   const [confirmInput, setConfirmInput] = useState('');
   const [isClearing, setIsClearing] = useState(false);
+
+  // Quick load profile into form
+  const handleSelectQuickProfile = (profileId: string) => {
+    setSelectedQuickProfileId(profileId);
+    if (!profileId) return;
+
+    const prof = savedProfiles.find(p => p.id === profileId || p.serial === profileId);
+    if (prof) {
+      setHostUrl(prof.host);
+      setMachineSerial(prof.serial);
+      setDeviceName(prof.name);
+      if (prof.secretKey) {
+        setSecretKey(prof.secretKey);
+      }
+      if (prof.appKey) {
+        setAppKey(prof.appKey);
+      }
+      showToast(`Đã nạp thông số máy "${prof.name}" (${prof.serial}) vào biểu mẫu`, 'info');
+    }
+  };
+
+  // Save machine profile to list without necessarily connecting right away
+  const handleSaveOnlyProfile = async () => {
+    if (!hostUrl.trim()) {
+      showToast('Vui lòng nhập Website / Domain của Dahahi', 'error');
+      return;
+    }
+    if (!machineSerial.trim()) {
+      showToast('Vui lòng nhập Serial máy (Mã thiết bị / MachineBoxId)', 'error');
+      return;
+    }
+
+    setIsSavingProfile(true);
+    let cleanHost = hostUrl.trim().replace(/\/$/, '');
+    if (!/^https?:\/\//i.test(cleanHost)) {
+      cleanHost = 'https://' + cleanHost;
+    }
+
+    try {
+      const res = await DahahiDataService.saveDeviceProfile({
+        name: (deviceName.trim() || `Máy ${machineSerial.trim()}`),
+        host: cleanHost,
+        secretKey: secretKey.trim(),
+        appKey: appKey.trim() || 'k77hcPwEXB4LTdJv96mz',
+        serial: machineSerial.trim(),
+        notes: `Lưu thủ công lúc ${new Date().toLocaleTimeString('vi-VN')}`
+      });
+
+      if (res.ok) {
+        await loadProfiles();
+        showToast('Đã lưu thông số máy vào danh sách để dùng cho lần sau!', 'success');
+      } else {
+        showToast(res.error || 'Lỗi khi lưu thông số máy', 'error');
+      }
+    } catch (err: any) {
+      showToast('Lỗi lưu: ' + err.message, 'error');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   // Handle Connect Device
   const handleConnectDevice = async (e: React.FormEvent) => {
@@ -107,13 +197,25 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
         cleanHost,
         secretKey.trim(),
         machineSerial.trim(),
-        deviceName.trim()
+        deviceName.trim(),
+        appKey.trim()
       );
 
       if (res.ok) {
+        // If saveToProfileList is true, save parameters to saved list
+        if (saveToProfileList) {
+          await DahahiDataService.saveDeviceProfile({
+            name: (deviceName.trim() || `Máy ${machineSerial.trim()}`),
+            host: cleanHost,
+            secretKey: secretKey.trim(),
+            appKey: appKey.trim() || 'k77hcPwEXB4LTdJv96mz',
+            serial: machineSerial.trim()
+          });
+          await loadProfiles();
+        }
+
         onRefreshData();
         showToast(res.message || 'Kết nối máy chấm công Dahahi thành công!', 'success');
-        setDeviceName('');
       } else {
         showToast(res.error || 'Kết nối thất bại. Vui lòng kiểm tra lại Domain, Key và Serial.', 'error');
       }
@@ -121,6 +223,76 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
       showToast('Lỗi kết nối: ' + err.message, 'error');
     } finally {
       setIsConnecting(false);
+    }
+  };
+
+  // Connect directly from Saved Profile (1-click)
+  const handleConnectFromProfile = async (prof: SavedDeviceProfile) => {
+    setConnectingProfileId(prof.id);
+    try {
+      const res = await DahahiDataService.connectSavedProfile(prof.id);
+      if (res.ok) {
+        onRefreshData();
+        await loadProfiles();
+        showToast(res.message || `Đã kết nối thành công máy ${prof.name} (${prof.serial})!`, 'success');
+      } else {
+        showToast(res.error || 'Lỗi khi kết nối máy từ hồ sơ đã lưu', 'error');
+      }
+    } catch (err: any) {
+      showToast('Lỗi: ' + err.message, 'error');
+    } finally {
+      setConnectingProfileId(null);
+    }
+  };
+
+  // Disconnect directly from Saved Profile
+  const handleDisconnectFromProfile = async (prof: SavedDeviceProfile) => {
+    if (!confirm(`Bạn có chắc muốn ngắt kết nối máy "${prof.name}" (Serial: ${prof.serial}) khỏi hệ thống?`)) {
+      return;
+    }
+    setDisconnectingBoxId(prof.serial);
+    try {
+      const res = await DahahiDataService.disconnectSavedProfile(prof.id);
+      if (res.ok) {
+        onRefreshData();
+        await loadProfiles();
+        showToast(`Đã ngắt kết nối máy "${prof.name}"`, 'info');
+      } else {
+        showToast('Không thể ngắt kết nối máy', 'error');
+      }
+    } finally {
+      setDisconnectingBoxId(null);
+    }
+  };
+
+  // Delete profile from saved list
+  const handleDeleteProfile = async (prof: SavedDeviceProfile) => {
+    if (!confirm(`Xóa cấu hình máy "${prof.name}" (${prof.serial}) khỏi danh sách lưu?`)) {
+      return;
+    }
+    await DahahiDataService.deleteDeviceProfile(prof.id);
+    await loadProfiles();
+    showToast(`Đã xóa máy "${prof.name}" khỏi danh sách cấu hình đã lưu`, 'info');
+  };
+
+  // Disconnect machine by BoxId (Active machine list)
+  const handleDisconnectMachine = async (boxId: string, machineName?: string) => {
+    const displayName = machineName || boxId;
+    if (!confirm(`Bạn có chắc chắn muốn ngắt kết nối máy "${displayName}" (Mã: ${boxId})? (Dữ liệu trên máy vật lý vẫn an toàn nguyên vẹn)`)) {
+      return;
+    }
+    setDisconnectingBoxId(boxId);
+    try {
+      const ok = await DahahiDataService.disconnectMachine(boxId);
+      if (ok) {
+        onRefreshData();
+        await loadProfiles();
+        showToast(`Đã ngắt kết nối máy "${displayName}" thành công`, 'info');
+      } else {
+        showToast('Không thể ngắt kết nối máy', 'error');
+      }
+    } finally {
+      setDisconnectingBoxId(null);
     }
   };
 
@@ -137,7 +309,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
     }
 
     try {
-      const res = await DahahiDataService.testConnection(cleanHost, secretKey.trim());
+      const res = await DahahiDataService.testConnection(cleanHost, secretKey.trim(), appKey.trim());
       if (res.ok) {
         const foundCount = res.machines?.length || 0;
         showToast(
@@ -194,20 +366,6 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
       showToast('Lỗi đồng bộ: ' + err.message, 'error');
     } finally {
       setIsTriggeringSync(false);
-    }
-  };
-
-  // Disconnect machine
-  const handleDisconnectMachine = async (boxId: string) => {
-    if (!confirm(`Bạn có chắc muốn ngắt kết nối máy ${boxId} khỏi hệ thống quản lý? (Dữ liệu trên máy vật lý không bị xóa)`)) {
-      return;
-    }
-    const ok = await DahahiDataService.disconnectMachine(boxId);
-    if (ok) {
-      onRefreshData();
-      showToast(`Đã ngắt kết nối máy ${boxId}`, 'info');
-    } else {
-      showToast('Không thể ngắt kết nối máy', 'error');
     }
   };
 
@@ -282,124 +440,177 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
       {/* Top Grid: Connection Form & Connected Devices */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Form: Add Device Connection (5 cols) */}
-        <div className="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">
-              <HardDrive className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900 dark:text-white">
-                Kết nối máy chấm công Dahahi
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Kết nối trực tiếp qua Domain, API Key và Serial máy
-              </p>
-            </div>
-          </div>
+        <div className="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">
+                  <HardDrive className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white">
+                    Kết nối máy chấm công Dahahi
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Nhập thông số hoặc chọn từ danh sách đã lưu
+                  </p>
+                </div>
+              </div>
 
-          <form onSubmit={handleConnectDevice} className="space-y-3.5">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Loại thiết bị
-              </label>
-              <input
-                type="text"
-                value={deviceType}
-                disabled
-                className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 font-semibold cursor-not-allowed"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                1. Website / Domain của Dahahi *
-              </label>
-              <input
-                type="text"
-                required
-                value={hostUrl}
-                onChange={e => setHostUrl(e.target.value)}
-                placeholder="https://ten_mien.dahahi.vn"
-                className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-emerald-500"
-              />
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                Địa chỉ web do Dahahi cấp riêng cho đơn vị của bạn.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                2. Api Secret Key *
-              </label>
-              <input
-                type="password"
-                required
-                value={secretKey}
-                onChange={e => setSecretKey(e.target.value)}
-                placeholder="Dán Api Secret Key"
-                className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-emerald-500"
-              />
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                Lấy tại: Web Dahahi &rarr; Cài đặt &rarr; Tích hợp API &rarr; "Api Secret Key".
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                3. Serial máy (Mã thiết bị / MachineBoxId) *
-              </label>
-              <input
-                type="text"
-                required
-                value={machineSerial}
-                onChange={e => setMachineSerial(e.target.value)}
-                placeholder="Ví dụ: 1468063 hoặc MAC0000001"
-                className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-emerald-500"
-              />
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                Lấy tại: Web Dahahi &rarr; Thiết bị &rarr; Cột "Tên thiết bị", dãy số dòng dưới.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Tên thiết bị gợi nhớ (Tùy chọn)
-              </label>
-              <input
-                type="text"
-                value={deviceName}
-                onChange={e => setDeviceName(e.target.value)}
-                placeholder="Ví dụ: Cửa Chính Văn Phòng"
-                className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div className="pt-2 flex items-center gap-2">
-              <button
-                type="button"
-                disabled={isTesting}
-                onClick={handleTestConnection}
-                className="px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium text-xs transition"
-              >
-                {isTesting ? 'Đang ping...' : 'Kiểm tra API (Ping)'}
-              </button>
-
-              {canManageDevices ? (
-                <button
-                  type="submit"
-                  disabled={isConnecting}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm shadow-md shadow-emerald-500/20 disabled:opacity-50 transition"
-                >
-                  <Wifi className="w-4 h-4" />
-                  {isConnecting ? 'Đang kết nối...' : 'Kết nối máy'}
-                </button>
-              ) : (
-                <p className="text-xs text-rose-500 italic flex-1 text-center">
-                  Cần quyền Quản lý thiết bị
-                </p>
+              {savedProfiles.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  {savedProfiles.length} máy đã lưu
+                </span>
               )}
             </div>
-          </form>
+
+            {/* Quick Profile Selector */}
+            {savedProfiles.length > 0 && (
+              <div className="mb-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                  <Bookmark className="w-3.5 h-3.5 text-emerald-500" />
+                  Chọn từ danh sách máy đã lưu để điền nhanh:
+                </label>
+                <select
+                  value={selectedQuickProfileId}
+                  onChange={e => handleSelectQuickProfile(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-lg text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+                >
+                  <option value="">-- Chọn máy cần kết nối --</option>
+                  {savedProfiles.map(p => {
+                    const isConn = machines.some(m => m.MachineBoxId === p.serial);
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {p.name} (Serial: {p.serial}) {isConn ? '• [Đang kết nối]' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
+            <form onSubmit={handleConnectDevice} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  1. Website / Domain của Dahahi *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={hostUrl}
+                  onChange={e => setHostUrl(e.target.value)}
+                  placeholder="https://ten_mien.dahahi.vn"
+                  className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-emerald-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Địa chỉ web do Dahahi cấp riêng cho đơn vị của bạn.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  2. Api Secret Key *
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={secretKey}
+                  onChange={e => setSecretKey(e.target.value)}
+                  placeholder="Dán Api Secret Key"
+                  className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-emerald-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Lấy tại: Web Dahahi &rarr; Cài đặt &rarr; Tích hợp API &rarr; "Api Secret Key".
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  3. Serial máy (Mã thiết bị / MachineBoxId) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={machineSerial}
+                  onChange={e => setMachineSerial(e.target.value)}
+                  placeholder="Ví dụ: 1468063 hoặc MAC0000001"
+                  className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-emerald-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Lấy tại: Web Dahahi &rarr; Thiết bị &rarr; Cột "Tên thiết bị", dãy số dòng dưới.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Tên thiết bị gợi nhớ (Tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  value={deviceName}
+                  onChange={e => setDeviceName(e.target.value)}
+                  placeholder="Ví dụ: Cửa Chính Văn Phòng"
+                  className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* Save parameters checkbox */}
+              <div className="pt-1">
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={saveToProfileList}
+                    onChange={e => setSaveToProfileList(e.target.checked)}
+                    className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                  />
+                  <span className="flex items-center gap-1.5">
+                    <BookmarkCheck className="w-3.5 h-3.5 text-emerald-500" />
+                    Lưu lại thông số theo danh sách máy để dùng cho lần sau
+                  </span>
+                </label>
+                <p className="text-[10px] text-slate-400 pl-6 mt-0.5">
+                  Lưu Domain, Key và Serial vào danh mục để lần sau chỉ cần 1 click là kết nối lại được ngay.
+                </p>
+              </div>
+
+              <div className="pt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isTesting}
+                  onClick={handleTestConnection}
+                  className="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium text-xs transition"
+                >
+                  {isTesting ? 'Đang ping...' : 'Kiểm tra API (Ping)'}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isSavingProfile}
+                  onClick={handleSaveOnlyProfile}
+                  className="px-3 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 font-semibold text-xs transition flex items-center gap-1.5"
+                  title="Lưu thông số máy này vào danh sách mà chưa kết nối ngay"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {isSavingProfile ? 'Đang lưu...' : 'Lưu thông số'}
+                </button>
+
+                {canManageDevices ? (
+                  <button
+                    type="submit"
+                    disabled={isConnecting}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm shadow-md shadow-emerald-500/20 disabled:opacity-50 transition min-w-[130px]"
+                  >
+                    <Wifi className="w-4 h-4" />
+                    {isConnecting ? 'Đang kết nối...' : 'Kết nối máy'}
+                  </button>
+                ) : (
+                  <p className="text-xs text-rose-500 italic flex-1 text-center">
+                    Cần quyền Quản lý thiết bị
+                  </p>
+                )}
+              </div>
+            </form>
+          </div>
         </div>
 
         {/* Connected Devices Table (7 cols) */}
@@ -409,10 +620,10 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Wifi className="w-5 h-5 text-emerald-500" />
-                  Máy đã kết nối ({machines.length})
+                  Máy đang kết nối ({machines.length})
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Danh sách máy chấm công nhận diện khuôn mặt trực tuyến
+                  Danh sách máy chấm công nhận diện khuôn mặt trực tuyến và nút ngắt kết nối từng máy
                 </p>
               </div>
             </div>
@@ -437,7 +648,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
                           Chưa kết nối máy nào
                         </p>
                         <p className="text-[11px] text-slate-400 mt-1">
-                          Điền Website Dahahi, Api Secret Key và Serial máy ở khung bên trái rồi bấm "Kết nối máy".
+                          Điền Website Dahahi, Api Secret Key và Serial máy ở khung bên trái hoặc chọn từ danh sách đã lưu rồi bấm "Kết nối máy".
                         </p>
                       </td>
                     </tr>
@@ -461,10 +672,10 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
                         <td className="py-3">
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 text-[11px]">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Online
+                            Đang kết nối
                           </span>
                         </td>
-                        <td className="py-3 pr-2 text-right space-x-1 whitespace-nowrap">
+                        <td className="py-3 pr-2 text-right space-x-1.5 whitespace-nowrap">
                           {canPerformDanger && (
                             <button
                               onClick={() => {
@@ -477,13 +688,17 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
                               Xóa mặt
                             </button>
                           )}
+
+                          {/* Dedicated Disconnect Button for Individual Machine */}
                           {canManageDevices && (
                             <button
-                              onClick={() => handleDisconnectMachine(m.MachineBoxId)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
-                              title="Ngắt kết nối máy"
+                              onClick={() => handleDisconnectMachine(m.MachineBoxId, m.MachineName)}
+                              disabled={disconnectingBoxId === m.MachineBoxId}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-rose-300 dark:border-rose-900/70 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 font-semibold text-xs shadow-sm transition disabled:opacity-50"
+                              title="Ngắt kết nối máy này khỏi hệ thống"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Power className="w-3.5 h-3.5" />
+                              <span>{disconnectingBoxId === m.MachineBoxId ? 'Đang ngắt...' : 'Ngắt kết nối'}</span>
                             </button>
                           )}
                         </td>
@@ -564,6 +779,154 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
               Thực hiện sao chép khuôn mặt
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* ======================= DANH SÁCH THÔNG SỐ MÁY ĐÃ LƯU (DÙNG CHO LẦN SAU) ======================= */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400">
+              <Bookmark className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Danh Sách Thông Số Máy Đã Lưu (Sử dụng cho lần sau)
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                  {savedProfiles.length} hồ sơ máy
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Lưu giữ thông số Domain, Serial, Key của từng máy để tái kết nối nhanh chóng và có nút ngắt kết nối cho từng máy riêng biệt.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={loadProfiles}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Làm mới danh sách
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
+                <th className="pb-3 pl-3">Tên thiết bị</th>
+                <th className="pb-3">Serial máy (BoxId)</th>
+                <th className="pb-3">Địa chỉ Domain / Host</th>
+                <th className="pb-3">Lần kết nối gần nhất</th>
+                <th className="pb-3 text-center">Trạng thái kết nối</th>
+                <th className="pb-3 pr-3 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-[11px]">
+              {savedProfiles.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-slate-400 font-sans">
+                    <BookmarkPlus className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                    <p className="font-semibold text-slate-700 dark:text-slate-300">
+                      Chưa có thông số máy nào được lưu
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Khi bấm "Kết nối máy" ở trên, tích chọn ô <em>"Lưu lại thông số theo danh sách máy để dùng cho lần sau"</em> để tự động lưu thông số vào đây.
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                savedProfiles.map(prof => {
+                  const isConnected = machines.some(m => m.MachineBoxId === prof.serial);
+
+                  return (
+                    <tr key={prof.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
+                      <td className="py-3 pl-3 font-sans font-bold text-slate-900 dark:text-white">
+                        <div className="flex items-center gap-2">
+                          <HardDrive className={`w-4 h-4 ${isConnected ? 'text-emerald-500' : 'text-slate-400'}`} />
+                          <span>{prof.name}</span>
+                        </div>
+                      </td>
+
+                      <td className="py-3 font-bold text-emerald-600 dark:text-emerald-400">
+                        {prof.serial}
+                      </td>
+
+                      <td className="py-3 text-slate-600 dark:text-slate-300 max-w-[200px] truncate" title={prof.host}>
+                        {prof.host}
+                      </td>
+
+                      <td className="py-3 text-slate-500 dark:text-slate-400 font-sans">
+                        {prof.lastConnected || 'Chưa kết nối'}
+                      </td>
+
+                      <td className="py-3 text-center font-sans">
+                        {isConnected ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 text-[11px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Đang kết nối
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 text-[11px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                            Đã ngắt kết nối
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3 pr-3 text-right space-x-1.5 whitespace-nowrap font-sans">
+                        {/* 1-Click Connect / Disconnect Buttons */}
+                        {isConnected ? (
+                          <button
+                            onClick={() => handleDisconnectFromProfile(prof)}
+                            disabled={disconnectingBoxId === prof.serial}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-900/80 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 font-semibold text-xs shadow-sm transition disabled:opacity-50"
+                            title="Ngắt kết nối máy này"
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                            <span>{disconnectingBoxId === prof.serial ? 'Đang ngắt...' : 'Ngắt kết nối'}</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleConnectFromProfile(prof)}
+                            disabled={connectingProfileId === prof.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 font-semibold text-xs shadow-sm transition disabled:opacity-50"
+                            title="Kết nối lại máy này với các thông số đã lưu"
+                          >
+                            <Wifi className="w-3.5 h-3.5" />
+                            <span>{connectingProfileId === prof.id ? 'Đang kết nối...' : 'Kết nối lại'}</span>
+                          </button>
+                        )}
+
+                        {/* Load into form to edit */}
+                        <button
+                          onClick={() => handleSelectQuickProfile(prof.id)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
+                          title="Tải thông số vào biểu mẫu để chỉnh sửa"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+
+                        {/* Delete from saved list */}
+                        <button
+                          onClick={() => handleDeleteProfile(prof)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 transition"
+                          title="Xóa máy này khỏi danh sách lưu"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

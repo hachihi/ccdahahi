@@ -1,12 +1,27 @@
-import { DahahiMachine, Employee, AttendanceLog, ConnectionSettings, MonthlyReportRow, AutoSyncConfig } from '../types/dahahi';
+import {
+  DahahiMachine,
+  Employee,
+  AttendanceLog,
+  ConnectionSettings,
+  MonthlyReportRow,
+  AutoSyncConfig,
+  SavedDeviceProfile,
+  DeviceDetailReportRow,
+  DetailedShiftReportRow,
+  ShiftConfig,
+  TimesheetTemplate,
+  AuditLogItem,
+  SyncHistoryItem
+} from '../types/dahahi';
+
 
 export const DEFAULT_SETTINGS: ConnectionSettings = {
   host: '',
   appKey: 'k77hcPwEXB4LTdJv96mz',
   secretKey: '',
   serial: '',
-  workStartTime: '08:30',
-  workEndTime: '17:30',
+  workStartTime: '08:00',
+  workEndTime: '17:00',
   callbackCheckinUrl: typeof window !== 'undefined' ? `${window.location.origin}/callback/checkin` : '',
   callbackHeartbeatUrl: typeof window !== 'undefined' ? `${window.location.origin}/callback/heartbeat` : '',
   autoSync: {
@@ -26,6 +41,8 @@ const LS_SETTINGS = 'dahahi_vcl_settings';
 const LS_MACHINES = 'dahahi_vcl_machines';
 const LS_EMPLOYEES = 'dahahi_vcl_employees';
 const LS_LOGS = 'dahahi_vcl_logs';
+const LS_PROFILES = 'dahahi_vcl_profiles';
+
 
 const getLocalItem = <T>(key: string, fallback: T): T => {
   if (typeof window === 'undefined') return fallback;
@@ -363,10 +380,97 @@ export class DahahiDataService {
   static async disconnectMachine(boxId: string): Promise<boolean> {
     const current = getLocalItem<DahahiMachine[]>(LS_MACHINES, []);
     setLocalItem(LS_MACHINES, current.filter(m => m.MachineBoxId !== boxId));
-    const res = await fetch(`/api/machines/${encodeURIComponent(boxId)}`, {
-      method: 'DELETE'
-    });
-    return res.ok;
+    try {
+      const res = await fetch(`/api/machines/${encodeURIComponent(boxId)}`, {
+        method: 'DELETE'
+      });
+      return res.ok;
+    } catch {
+      return true;
+    }
+  }
+
+  // Get Saved Device Profiles (Danh sách thông số máy đã lưu)
+  static async getDeviceProfiles(): Promise<SavedDeviceProfile[]> {
+    try {
+      const res = await fetch('/api/device-profiles');
+      if (res.ok) {
+        const list = await res.json();
+        if (Array.isArray(list)) {
+          setLocalItem(LS_PROFILES, list);
+          return list;
+        }
+      }
+    } catch (e) {
+      console.warn('Error fetching device profiles:', e);
+    }
+    return getLocalItem<SavedDeviceProfile[]>(LS_PROFILES, []);
+  }
+
+  // Save / Update Device Profile
+  static async saveDeviceProfile(profile: Partial<SavedDeviceProfile>): Promise<{ ok: boolean; profile?: SavedDeviceProfile; error?: string }> {
+    try {
+      const res = await fetch('/api/device-profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile)
+      });
+      const data = await res.json();
+      if (data.ok && data.profile) {
+        const current = getLocalItem<SavedDeviceProfile[]>(LS_PROFILES, []);
+        const filtered = current.filter(p => p.id !== data.profile.id && p.serial !== data.profile.serial);
+        setLocalItem(LS_PROFILES, [...filtered, data.profile]);
+      }
+      return data;
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  // Delete Saved Device Profile
+  static async deleteDeviceProfile(id: string): Promise<boolean> {
+    const current = getLocalItem<SavedDeviceProfile[]>(LS_PROFILES, []);
+    setLocalItem(LS_PROFILES, current.filter(p => p.id !== id && p.serial !== id));
+    try {
+      const res = await fetch(`/api/device-profiles/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      });
+      return res.ok;
+    } catch {
+      return true;
+    }
+  }
+
+  // Connect via Saved Device Profile
+  static async connectSavedProfile(id: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+    try {
+      const res = await fetch(`/api/device-profiles/${encodeURIComponent(id)}/connect`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (data.ok) {
+        await this.getMachines();
+      }
+      return data;
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  // Disconnect via Saved Device Profile
+  static async disconnectSavedProfile(id: string): Promise<{ ok: boolean; message?: string }> {
+    try {
+      const res = await fetch(`/api/device-profiles/${encodeURIComponent(id)}/disconnect`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (data.ok) {
+        await this.getMachines();
+      }
+      return data;
+    } catch (e: any) {
+      return { ok: false, message: e.message };
+    }
   }
 
   // Get employees from server DB or localStorage
@@ -680,4 +784,361 @@ export class DahahiDataService {
 
     return result.sort((a, b) => a.pid.localeCompare(b.pid, undefined, { numeric: true }));
   }
+
+  // Mẫu 1: Báo cáo chấm công chi tiết theo máy
+  // Cột: Mã NV, Tên NV, Ngày, Máy, Lần 1, Lần 2, Lần 3...
+  static calculateDeviceDetailReport(
+    logs: AttendanceLog[],
+    employees: Employee[],
+    machines: DahahiMachine[],
+    options: {
+      monthStr?: string;
+      dateStr?: string;
+      machineBoxId?: string;
+      pid?: string;
+    } = {}
+  ): { rows: DeviceDetailReportRow[]; maxPunches: number } {
+    const empMap = new Map(employees.map(e => [e.id, e]));
+    const machineMap = new Map(machines.map(m => [m.MachineBoxId, m.MachineName]));
+
+    const groups = new Map<string, { pid: string; date: string; m: string; name: string; punches: string[] }>();
+
+    for (const log of logs) {
+      if (!log.time) continue;
+      const datePart = log.time.slice(0, 10);
+      if (options.monthStr && !datePart.startsWith(options.monthStr)) continue;
+      if (options.dateStr && datePart !== options.dateStr) continue;
+      if (options.machineBoxId && options.machineBoxId !== 'all' && log.m !== options.machineBoxId) continue;
+      if (options.pid && options.pid !== 'all' && log.pid !== options.pid) continue;
+
+      const key = `${log.pid}___${datePart}___${log.m || 'DEF'}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          pid: log.pid,
+          date: datePart,
+          m: log.m || '',
+          name: log.name,
+          punches: []
+        });
+      }
+      const timePart = log.time.length >= 19 ? log.time.slice(11, 19) : log.time.slice(11, 16);
+      groups.get(key)!.punches.push(timePart);
+    }
+
+    let maxPunches = 1;
+    const rows: DeviceDetailReportRow[] = [];
+
+    for (const item of groups.values()) {
+      item.punches.sort();
+      if (item.punches.length > maxPunches) {
+        maxPunches = item.punches.length;
+      }
+
+      const emp = empMap.get(item.pid);
+      const machineName = machineMap.get(item.m) || (item.m ? `Máy ${item.m}` : 'Thiết bị Dahahi');
+
+      rows.push({
+        employeeCode: emp?.code || item.pid,
+        employeeName: emp?.name || item.name || `NV ${item.pid}`,
+        date: item.date,
+        machine: item.m ? `${machineName} (${item.m})` : machineName,
+        punches: item.punches
+      });
+    }
+
+    rows.sort((a, b) => {
+      const dateCompare = b.date.localeCompare(a.date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.employeeCode.localeCompare(b.employeeCode, undefined, { numeric: true });
+    });
+
+    return { rows, maxPunches: Math.max(maxPunches, 3) };
+  }
+
+  // Mẫu 2: Báo cáo chấm công chi tiết theo ca
+  // Cột: STT, Mã NV, Họ và tên, Phòng ban, Ngày, Vào Sớm Nhất (MIN), Ra Muộn Nhất (MAX), Mã Ca, Giờ Vào Chuẩn, Giờ Ra Chuẩn, Phút vào Trễ, Phút về Sớm, Giờ công
+  static calculateDetailedShiftReport(
+    logs: AttendanceLog[],
+    employees: Employee[],
+    options: {
+      monthStr?: string;
+      dateStr?: string;
+      standardIn?: string;
+      standardOut?: string;
+      shiftCode?: string;
+      pid?: string;
+      department?: string;
+    } = {}
+  ): DetailedShiftReportRow[] {
+    const empMap = new Map(employees.map(e => [e.id, e]));
+    const standardIn = options.standardIn || '08:00';
+    const standardOut = options.standardOut || '17:00';
+    const shiftCode = options.shiftCode || 'HC';
+
+    const timeToMins = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+
+    const stdInMins = timeToMins(standardIn);
+    const stdOutMins = timeToMins(standardOut);
+
+    const groups = new Map<string, { pid: string; date: string; name: string; times: string[] }>();
+
+    for (const log of logs) {
+      if (!log.time) continue;
+      const datePart = log.time.slice(0, 10);
+      if (options.monthStr && !datePart.startsWith(options.monthStr)) continue;
+      if (options.dateStr && datePart !== options.dateStr) continue;
+      if (options.pid && options.pid !== 'all' && log.pid !== options.pid) continue;
+
+      const emp = empMap.get(log.pid);
+      if (options.department && options.department !== 'all' && emp?.department !== options.department) continue;
+
+      const key = `${log.pid}___${datePart}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          pid: log.pid,
+          date: datePart,
+          name: log.name,
+          times: []
+        });
+      }
+      const timeHm = log.time.slice(11, 16);
+      groups.get(key)!.times.push(timeHm);
+    }
+
+    const rows: DetailedShiftReportRow[] = [];
+
+    for (const item of groups.values()) {
+      item.times.sort();
+      const minIn = item.times[0];
+      const maxOut = item.times[item.times.length - 1];
+
+      const emp = empMap.get(item.pid);
+      const minInMins = timeToMins(minIn);
+      const maxOutMins = timeToMins(maxOut);
+
+      // Phút vào Trễ
+      const lateMinutes = minInMins > stdInMins ? Math.max(0, minInMins - stdInMins) : 0;
+
+      // Phút về Sớm
+      const earlyMinutes = maxOutMins < stdOutMins ? Math.max(0, stdOutMins - maxOutMins) : 0;
+
+      // Giờ công
+      let workHours = 8.0;
+      if (item.times.length === 1) {
+        workHours = 4.0;
+      } else {
+        const totalWorkMinutes = Math.max(0, 480 - lateMinutes - earlyMinutes);
+        workHours = Math.max(0, Math.min(8.0, +(totalWorkMinutes / 60).toFixed(1)));
+      }
+
+      rows.push({
+        stt: 0,
+        employeeCode: emp?.code || item.pid,
+        employeeName: emp?.name || item.name || `NV ${item.pid}`,
+        department: emp?.department || 'Khối văn phòng',
+        date: item.date,
+        minIn,
+        maxOut,
+        shiftCode,
+        standardIn,
+        standardOut,
+        lateMinutes,
+        earlyMinutes,
+        workHours
+      });
+    }
+
+    rows.sort((a, b) => {
+      const dateCompare = b.date.localeCompare(a.date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.employeeCode.localeCompare(b.employeeCode, undefined, { numeric: true });
+    });
+
+    return rows.map((r, idx) => ({ ...r, stt: idx + 1 }));
+  }
+
+  // ==================== AUTH HEADERS HELPER ====================
+  private static getAuthHeaders(): Record<string, string> {
+    if (typeof window === 'undefined') return {};
+    try {
+      const rawUser = localStorage.getItem('dahahi_current_user');
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        return {
+          'x-user-role': u.role || 'SUPER_ADMIN',
+          'x-user-name': encodeURIComponent(u.fullName || u.username || 'Admin')
+        };
+      }
+    } catch {}
+    return { 'x-user-role': 'SUPER_ADMIN', 'x-user-name': 'Admin' };
+  }
+
+  // ==================== MODULE 6: CA LÀM VIỆC & CẤU HÌNH TÍNH CÔNG ====================
+  static async getShifts(): Promise<ShiftConfig[]> {
+    try {
+      const res = await fetch('/api/shifts');
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('Could not fetch shifts:', e);
+    }
+    return [
+      {
+        code: 'HC',
+        name: 'Hành chính (08:00 - 17:00)',
+        startTime: '08:00',
+        endTime: '17:00',
+        breakStart: '12:00',
+        breakEnd: '13:00',
+        graceLateMinutes: 15,
+        graceEarlyMinutes: 15,
+        overtimeAfterMinutes: 30,
+        standardWorkHours: 8.0,
+        isDefault: true,
+        applicableDepartments: []
+      }
+    ];
+  }
+
+  static async saveShift(shift: ShiftConfig): Promise<{ ok: boolean; shifts?: ShiftConfig[]; error?: string }> {
+    try {
+      const res = await fetch('/api/shifts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeaders()
+        },
+        body: JSON.stringify(shift)
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  static async deleteShift(code: string): Promise<{ ok: boolean; shifts?: ShiftConfig[]; error?: string }> {
+    try {
+      const res = await fetch(`/api/shifts/${encodeURIComponent(code)}`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders()
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  // ==================== MODULE 7: MẪU BẢNG CÔNG TÙY BIẾN ====================
+  static async getTimesheetTemplates(): Promise<TimesheetTemplate[]> {
+    try {
+      const res = await fetch('/api/timesheet-templates');
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('Could not fetch templates:', e);
+    }
+    return [];
+  }
+
+  static async saveTimesheetTemplate(template: Partial<TimesheetTemplate>): Promise<{ ok: boolean; templates?: TimesheetTemplate[]; error?: string }> {
+    try {
+      const res = await fetch('/api/timesheet-templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeaders()
+        },
+        body: JSON.stringify(template)
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  static async deleteTimesheetTemplate(id: string): Promise<{ ok: boolean; templates?: TimesheetTemplate[]; error?: string }> {
+    try {
+      const res = await fetch(`/api/timesheet-templates/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders()
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  // ==================== MODULE 4: CHỐNG TRÙNG LẶP DỮ LIỆU ====================
+  static async deduplicateAttendance(): Promise<{ ok: boolean; removedCount?: number; totalRemaining?: number; message?: string; error?: string }> {
+    try {
+      const res = await fetch('/api/attendance/deduplicate', {
+        method: 'POST',
+        headers: this.getAuthHeaders()
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  // ==================== MODULE 8: AUDIT LOGS & BACKUP/RESTORE ====================
+  static async getAuditLogs(): Promise<AuditLogItem[]> {
+    try {
+      const res = await fetch('/api/audit-logs');
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('Could not fetch audit logs:', e);
+    }
+    return [];
+  }
+
+  static async logAudit(action: string, target: string, status: 'SUCCESS' | 'WARNING' | 'ERROR' = 'SUCCESS', details?: string): Promise<void> {
+    try {
+      await fetch('/api/audit-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeaders()
+        },
+        body: JSON.stringify({ action, target, status, details })
+      });
+    } catch {}
+  }
+
+  static async getSyncHistory(): Promise<SyncHistoryItem[]> {
+    try {
+      const res = await fetch('/api/sync-history');
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('Could not fetch sync history:', e);
+    }
+    return [];
+  }
+
+  static async restoreSystemBackup(payload: any): Promise<{ ok: boolean; message?: string; error?: string }> {
+    try {
+      const res = await fetch('/api/system/restore', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.getAuthHeaders()
+        },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  }
 }
+
+

@@ -1,6 +1,18 @@
 export type RoleType = 'SUPER_ADMIN' | 'HR_MANAGER' | 'TECHNICIAN' | 'VIEWER' | 'CUSTOM';
 
+export type ActiveTab =
+  | 'dashboard'
+  | 'employees'
+  | 'devices'
+  | 'logs'
+  | 'report'
+  | 'shifts'
+  | 'templates'
+  | 'users'
+  | 'docs';
+
 export type PermissionKey =
+
   | 'manage_devices'
   | 'manage_employees'
   | 'manage_faces'
@@ -129,3 +141,104 @@ export interface ApiDocItem {
   outputParams: { field: string; type: string; description: string; sample: string }[];
   errorCodes?: { code: string; message: string }[];
 }
+
+export interface SavedDeviceProfile {
+  id: string;
+  name: string;
+  host: string;
+  secretKey: string;
+  appKey: string;
+  serial: string;
+  isConnected?: boolean;
+  lastConnected?: string;
+  notes?: string;
+}
+
+// Mẫu 1: Báo cáo chấm công chi tiết theo máy (cứ mỗi lần chấm trong ngày là thêm 1 cột)
+export interface DeviceDetailReportRow {
+  employeeCode: string;
+  employeeName: string;
+  date: string; // YYYY-MM-DD
+  machine: string; // Tên máy hoặc BoxId
+  punches: string[]; // ['08:02:15', '12:01:10', '13:00:22', ...]
+}
+
+// Mẫu 2: Báo cáo chấm công chi tiết theo ca (MIN, MAX, Ca, Vào Chuẩn, Ra Chuẩn, Phút Trễ, Phút Sớm, Giờ công)
+export interface DetailedShiftReportRow {
+  stt: number;
+  employeeCode: string;
+  employeeName: string;
+  department: string;
+  date: string; // YYYY-MM-DD
+  minIn: string; // Vào Sớm Nhất (MIN)
+  maxOut: string; // Ra Muộn Nhất (MAX)
+  shiftCode: string; // Mã Ca (e.g. HC)
+  standardIn: string; // Giờ Vào Chuẩn
+  standardOut: string; // Giờ Ra Chuẩn
+  lateMinutes: number; // Phút vào Trễ
+  earlyMinutes: number; // Phút về Sớm
+  workHours: number; // Giờ công
+  overtimeHours?: number; // Giờ tăng ca
+}
+
+// Module 6: Cấu hình tính công & ca làm việc
+export interface ShiftConfig {
+  code: string; // e.g. HC, CA_SANG, CA_TOI
+  name: string; // Ca Hành chính, Ca sáng...
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  breakStart?: string; // HH:mm
+  breakEnd?: string; // HH:mm
+  graceLateMinutes: number; // Phút cho phép trễ (ví dụ: 15)
+  graceEarlyMinutes: number; // Phút cho phép sớm (ví dụ: 10)
+  overtimeAfterMinutes: number; // Phút sau giờ làm tính OT (ví dụ: 30)
+  standardWorkHours: number; // 8.0
+  isDefault?: boolean;
+  applicableDepartments?: string[]; // Phòng ban áp dụng
+}
+
+// Module 7: Mẫu bảng công tùy chỉnh
+export interface TimesheetColumnConfig {
+  key: string;
+  label: string;
+  visible: boolean;
+  order: number;
+  width?: number;
+}
+
+export interface TimesheetTemplate {
+  id: string;
+  name: string;
+  description: string;
+  baseType: 'device_detail' | 'shift_detail' | 'monthly_matrix';
+  columns: TimesheetColumnConfig[];
+  isDefault?: boolean;
+  createdAt: string;
+}
+
+// Module 8: Nhật ký hoạt động (Audit Log)
+export interface AuditLogItem {
+  id: string;
+  timestamp: string;
+  userName: string;
+  userRole: string;
+  action: string;
+  target: string;
+  status: 'SUCCESS' | 'WARNING' | 'ERROR';
+  details?: string;
+  ip?: string;
+}
+
+// Lịch sử đồng bộ chi tiết
+export interface SyncHistoryItem {
+  id: string;
+  timestamp: string;
+  machineBoxId: string;
+  machineName?: string;
+  type: 'AUTO_SCHEDULE' | 'MANUAL_TRIGGER' | 'FACE_PUSH';
+  status: 'SUCCESS' | 'ERROR' | 'PARTIAL';
+  addedRecords: number;
+  message: string;
+  durationMs: number;
+}
+

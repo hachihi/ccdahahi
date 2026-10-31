@@ -1,743 +1,371 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { FileSpreadsheet, FileText, Download, Calendar, Search, Cpu, Building2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { ReportTable, exportCsv, exportPdf, exportXlsx } from '../services/reportExport';
+import React, { useState, useEffect } from 'react';
 import {
-  ReportFilter,
-  buildDailyDetailReport,
-  buildMachineDetailReport,
-  buildPayrollReport,
-  formatDateVi
-} from '../services/timesheetReportService';
-import { WorkConfig } from '../services/workConfig';
-import { DahahiDataService } from '../services/dahahiService';
-import {
-  MAX_RANGE_DAYS,
-  PERIOD_LABELS,
-  PeriodKind,
-  PeriodState,
-  addDays,
-  daysBetweenCount,
-  periodFileSuffix,
-  periodTitle,
-  rangeOfPeriod,
-  shiftPeriod,
-  todayVN
-} from '../services/timeUtils';
-import { AttendanceLog, ConnectionSettings, DahahiMachine, Employee } from '../types/dahahi';
+  FileSpreadsheet,
+  Plus,
+  Trash2,
+  Edit3,
+  CheckCircle2,
+  Sliders,
+  Layers,
+  Download,
+  Eye,
+  EyeOff,
+  Copy,
+  Star,
+  Check
+} from 'lucide-react';
+import { TimesheetTemplate, TimesheetColumnConfig } from '../types/dahahi';
+import { DahahiDataService, downloadCsv } from '../services/dahahiService';
+import { useAuth } from '../context/AuthContext';
 
-export type TemplateId = 'machine' | 'daily' | 'payroll';
-
-interface Props {
-  template: TemplateId;
-  logs: AttendanceLog[];
-  employees: Employee[];
-  machines: DahahiMachine[];
-  settings: ConnectionSettings;
-  config: WorkConfig;
+interface TimesheetTemplatesViewProps {
+  onSelectTemplate?: (templateId: string) => void;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-const PAGE_SIZE = 100;
-
-const inputCls =
-  'px-3 py-1.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500';
-const thCls = 'py-3 px-3 text-center font-semibold whitespace-nowrap border-r border-slate-200 dark:border-slate-700 last:border-r-0';
-const tdCls = 'py-2 px-3 whitespace-nowrap border-r border-slate-100 dark:border-slate-800 last:border-r-0';
-
-export const TimesheetTemplatesView: React.FC<Props> = ({
-  template,
-  logs,
-  employees,
-  machines,
-  config,
+export const TimesheetTemplatesView: React.FC<TimesheetTemplatesViewProps> = ({
+  onSelectTemplate,
   showToast
 }) => {
-  const [period, setPeriod] = useState<PeriodState>(() => {
-    const t = todayVN();
-    return { kind: 'month', anchor: t, customFrom: `${t.slice(0, 7)}-01`, customTo: t };
-  });
-  const { from, to } = rangeOfPeriod(period);
-  const rangeDays = daysBetweenCount(from, to);
-  const rangeInvalid = !from || !to || from > to || rangeDays > MAX_RANGE_DAYS;
+  const { currentUser, hasPermission } = useAuth();
+  const canEdit = currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'HR_MANAGER' || hasPermission('manage_devices');
 
-  // Dữ liệu chấm công đầy đủ của kỳ đã chọn, lấy từ máy chủ (kèm 1 ngày đệm hai đầu cho ca đêm)
-  const [rangeLogs, setRangeLogs] = useState<AttendanceLog[] | null>(null);
-  const [loadingLogs, setLoadingLogs] = useState(false);
-  const [logsError, setLogsError] = useState('');
-  const [reloadTick, setReloadTick] = useState(0);
-  useEffect(() => {
-    if (rangeInvalid) return;
-    let cancelled = false;
-    setLoadingLogs(true);
-    setLogsError('');
-    DahahiDataService.fetchLogsRange(addDays(from, -1), addDays(to, 1)).then(r => {
-      if (cancelled) return;
-      setLoadingLogs(false);
-      if (r.ok) setRangeLogs(r.logs);
-      else {
-        setRangeLogs(null);
-        setLogsError(r.error || 'Không tải được dữ liệu của kỳ này');
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [from, to, rangeInvalid, reloadTick]);
-  // Khi không tải được thì dùng tạm dữ liệu sẵn có trên màn hình (có thể chưa đủ) và cảnh báo rõ
-  const effectiveLogs = rangeLogs ?? logs;
-  const [machineId, setMachineId] = useState('all');
-  const [department, setDepartment] = useState('all');
-  const [keyword, setKeyword] = useState('');
-  const [dedupeSeconds, setDedupeSeconds] = useState(60);
-  const [page, setPage] = useState(1);
-  const [company, setCompany] = useState(() => {
+  const [templates, setTemplates] = useState<TimesheetTemplate[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<TimesheetTemplate | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const loadTemplates = async () => {
+    setLoading(true);
     try {
-      return localStorage.getItem('report_company') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    try {
-      localStorage.setItem('report_company', company);
-    } catch {
-      /* bỏ qua nếu trình duyệt chặn lưu */
-    }
-  }, [company]);
-  useEffect(() => setPage(1), [template, from, to, machineId, department, keyword, dedupeSeconds]);
-
-  const departments = useMemo(
-    () => Array.from(new Set(employees.map(e => e.department || 'Chung'))).sort(),
-    [employees]
-  );
-
-  const filter: ReportFilter = { from, to, machineId, department, keyword, dedupeSeconds };
-
-  const machineReport = useMemo(
-    () => (template === 'machine' ? buildMachineDetailReport(effectiveLogs, employees, machines, filter) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, effectiveLogs, employees, machines, from, to, machineId, department, keyword, dedupeSeconds]
-  );
-  const dailyReport = useMemo(
-    () => (template === 'daily' ? buildDailyDetailReport(effectiveLogs, employees, filter, config) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, effectiveLogs, employees, config, from, to, machineId, department, keyword, dedupeSeconds]
-  );
-  const payrollReport = useMemo(
-    () => (template === 'payroll' ? buildPayrollReport(effectiveLogs, employees, filter, config) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, effectiveLogs, employees, config, from, to, department, keyword, dedupeSeconds]
-  );
-
-  const payrollSummary = useMemo(() => {
-    const rows = payrollReport || [];
-    return {
-      unconfirmed: rows.reduce((a, r) => a + r.unconfirmedDays, 0),
-      incomplete: rows.reduce((a, r) => a + r.incompleteDays, 0),
-      people: rows.filter(r => r.unconfirmedDays + r.incompleteDays > 0).length
-    };
-  }, [payrollReport]);
-
-  const total =
-    template === 'machine'
-      ? machineReport!.rows.length
-      : template === 'daily'
-        ? dailyReport!.length
-        : payrollReport!.length;
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const start = (page - 1) * PAGE_SIZE;
-
-  const machineLabel =
-    machineId === 'all' ? 'Tất cả máy' : machines.find(m => m.MachineBoxId === machineId)?.MachineName || machineId;
-  const deptLabel = department === 'all' ? 'Tất cả phòng ban' : department;
-  const subtitle =
-    template === 'payroll'
-      ? `${periodTitle(period.kind, from, to)}  |  Mọi máy  |  ${deptLabel}`
-      : `${periodTitle(period.kind, from, to)}  |  ${machineLabel}  |  ${deptLabel}`;
-
-  /* ---------------------- Xuất file ---------------------- */
-  const buildTable = (): ReportTable => {
-    if (template === 'machine') {
-      const { rows, maxPunches } = machineReport!;
-      return {
-        company,
-        title: 'BÁO CÁO CHẤM CÔNG CHI TIẾT THEO MÁY',
-        subtitle,
-        fileName: `bao_cao_cham_cong_theo_may_${periodFileSuffix(period.kind, from, to)}`,
-        columns: [
-          { header: 'Mã NV', width: 12 },
-          { header: 'Tên NV', width: 28, align: 'left' },
-          { header: 'Ngày', width: 13 },
-          { header: 'Máy', width: 22, align: 'left' },
-          ...Array.from({ length: maxPunches }, (_, i) => ({ header: `Lần ${i + 1}`, width: 11 }))
-        ],
-        rows: rows.map(r => [
-          r.code,
-          r.name,
-          formatDateVi(r.date),
-          r.machineName,
-          ...Array.from({ length: maxPunches }, (_, i) => r.punches[i] || '')
-        ]),
-        signatures: ['Người lập biểu', 'Kế toán', 'Giám đốc']
-      };
-    }
-    if (template === 'payroll') {
-      const pr = payrollReport!;
-      const add = (f: (r: (typeof pr)[number]) => number) =>
-        Math.round(pr.reduce((a, r) => a + f(r), 0) * 100) / 100;
-      return {
-        company,
-        title: 'BẢNG TỔNG HỢP CÔNG PHỤC VỤ TÍNH LƯƠNG',
-        subtitle,
-        fileName: `tong_hop_cong_tinh_luong_${periodFileSuffix(period.kind, from, to)}`,
-        columns: [
-          { header: 'STT', width: 6 },
-          { header: 'Mã NV', width: 11 },
-          { header: 'Họ và tên', width: 26, align: 'left' },
-          { header: 'Phòng ban', width: 16, align: 'left' },
-          { header: 'Mã ca', width: 7 },
-          { header: 'Công chuẩn', width: 9 },
-          { header: 'Công thực tế', width: 9 },
-          { header: 'Công phép', width: 9 },
-          { header: 'Công lễ', width: 8 },
-          { header: 'Tổng công hưởng lương', width: 12 },
-          { header: 'Nghỉ không lương (ngày)', width: 11 },
-          { header: 'Ngày chưa có dữ liệu', width: 11 },
-          { header: 'Ngày thiếu lượt chấm', width: 11 },
-          { header: 'Phút đi muộn', width: 9 },
-          { header: 'Phút về sớm', width: 9 },
-          { header: 'TC ngày thường (giờ)', width: 11 },
-          { header: 'TC ngày nghỉ (giờ)', width: 11 },
-          { header: 'TC ngày lễ (giờ)', width: 11 }
-        ],
-        rows: pr.map(r => [
-          r.stt, r.code, r.name, r.department, r.shiftCode,
-          r.standardDays, r.actual, r.leavePaid, r.holidayPaid, r.paidTotal,
-          r.unpaidDays, r.unconfirmedDays, r.incompleteDays, r.lateMin, r.earlyMin,
-          r.otWeekday, r.otOff, r.otHoliday
-        ]),
-        totalsRow: [
-          '', '', 'TỔNG CỘNG', '', '', '',
-          add(r => r.actual), add(r => r.leavePaid), add(r => r.holidayPaid), add(r => r.paidTotal),
-          add(r => r.unpaidDays), add(r => r.unconfirmedDays), add(r => r.incompleteDays),
-          add(r => r.lateMin), add(r => r.earlyMin),
-          add(r => r.otWeekday), add(r => r.otOff), add(r => r.otHoliday)
-        ],
-        signatures: ['Người lập biểu', 'Kế toán', 'Giám đốc']
-      };
-    }
-    const rows = dailyReport!;
-    const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0);
-    return {
-      company,
-      title: 'BÁO CÁO CHẤM CÔNG CHI TIẾT',
-      subtitle,
-      fileName: `bao_cao_cham_cong_chi_tiet_${periodFileSuffix(period.kind, from, to)}`,
-      columns: [
-        { header: 'STT', width: 6 },
-        { header: 'Mã NV', width: 12 },
-        { header: 'Họ và tên', width: 28, align: 'left' },
-        { header: 'Phòng ban', width: 18, align: 'left' },
-        { header: 'Ngày', width: 13 },
-        { header: 'Vào sớm nhất (MIN)', width: 13 },
-        { header: 'Ra muộn nhất (MAX)', width: 13 },
-        { header: 'Mã ca', width: 8 },
-        { header: 'Giờ vào chuẩn', width: 11 },
-        { header: 'Giờ ra chuẩn', width: 11 },
-        { header: 'Phút vào trễ', width: 10 },
-        { header: 'Phút về sớm', width: 10 },
-        { header: 'Giờ công', width: 10 },
-        { header: 'Ghi chú', width: 18, align: 'left' }
-      ],
-      rows: rows.map(r => [
-        r.stt,
-        r.code,
-        r.name,
-        r.department,
-        formatDateVi(r.date),
-        r.firstIn,
-        r.lastOut,
-        r.shiftCode,
-        r.stdIn,
-        r.stdOut,
-        r.lateMinutes,
-        r.earlyMinutes,
-        r.workHours, // giữ là số để Excel cộng/lọc được
-        r.note
-      ]),
-      totalsRow: [
-        '', '', 'TỔNG CỘNG', '', '', '', '', '', '', '',
-        sum(r => r.lateMinutes),
-        sum(r => r.earlyMinutes),
-        Math.round(sum(r => r.workHours) * 100) / 100,
-        ''
-      ],
-      signatures: ['Người lập biểu', 'Kế toán', 'Giám đốc']
-    };
-  };
-
-  const runExport = async (kind: 'xlsx' | 'pdf' | 'csv') => {
-    if (rangeInvalid) {
-      showToast('Khoảng thời gian không hợp lệ.', 'error');
-      return;
-    }
-    if (loadingLogs) {
-      showToast('Đang tải dữ liệu của kỳ này, vui lòng đợi vài giây rồi xuất lại.', 'info');
-      return;
-    }
-    if (logsError && !confirm(`Chưa tải đủ dữ liệu của kỳ này (${logsError}).\nFile xuất ra có thể thiếu lượt chấm và không nên dùng để chốt công.\n\nVẫn xuất file?`)) {
-      return;
-    }
-    const t = buildTable();
-    if (t.rows.length === 0) {
-      showToast('Chưa có dữ liệu để xuất. Hãy kiểm tra lại tháng hoặc bộ lọc.', 'error');
-      return;
-    }
-    try {
-      setBusy(true);
-      if (kind === 'xlsx') {
-        await exportXlsx(t);
-        showToast(`Đã xuất ${t.rows.length} dòng ra Excel (.xlsx)`, 'success');
-      } else if (kind === 'csv') {
-        exportCsv(t);
-        showToast(`Đã xuất ${t.rows.length} dòng ra CSV`, 'success');
-      } else if (exportPdf(t)) {
-        showToast('Đã mở cửa sổ in. Chọn "Lưu dạng PDF" để lưu file.', 'info');
-      } else {
-        showToast('Trình duyệt đang chặn cửa sổ in. Hãy cho phép cửa sổ bật lên rồi thử lại.', 'error');
-      }
-    } catch (e) {
-      console.error(e);
-      showToast('Xuất file không thành công. Vui lòng thử lại.', 'error');
+      const data = await DahahiDataService.getTimesheetTemplates();
+      setTemplates(data);
+    } catch (err: any) {
+      showToast('Lỗi tải danh sách mẫu bảng công: ' + err.message, 'error');
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   };
 
-  /* ---------------------- Giao diện ---------------------- */
-  const pageRows = <T,>(arr: T[]) => arr.slice(start, start + PAGE_SIZE);
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  const handleToggleColumn = (colKey: string) => {
+    if (!editingTemplate) return;
+    const updatedCols = editingTemplate.columns.map(c =>
+      c.key === colKey ? { ...c, visible: !c.visible } : c
+    );
+    setEditingTemplate({ ...editingTemplate, columns: updatedCols });
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!editingTemplate) return;
+    if (!editingTemplate.name.trim()) {
+      showToast('Vui lòng nhập tên mẫu bảng công', 'error');
+      return;
+    }
+
+    const res = await DahahiDataService.saveTimesheetTemplate(editingTemplate);
+    if (res.ok && res.templates) {
+      setTemplates(res.templates);
+      setIsModalOpen(false);
+      setEditingTemplate(null);
+      showToast('Đã lưu cấu hình mẫu bảng công thành công', 'success');
+    } else {
+      showToast(res.error || 'Lỗi khi lưu mẫu bảng công', 'error');
+    }
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    if (!canEdit) {
+      showToast('Bạn không có quyền xóa mẫu', 'error');
+      return;
+    }
+    const res = await DahahiDataService.deleteTimesheetTemplate(id);
+    if (res.ok && res.templates) {
+      setTemplates(res.templates);
+      showToast('Đã xóa mẫu bảng công', 'success');
+    } else {
+      showToast(res.error || 'Lỗi khi xóa mẫu', 'error');
+    }
+  };
+
+  const handleSetDefault = async (tpl: TimesheetTemplate) => {
+    const updated = { ...tpl, isDefault: true };
+    const res = await DahahiDataService.saveTimesheetTemplate(updated);
+    if (res.ok && res.templates) {
+      setTemplates(res.templates);
+      showToast(`Đã đặt "${tpl.name}" làm mẫu xuất mặc định`, 'success');
+    }
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Bộ lọc */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-            <Calendar className="w-4 h-4 text-emerald-500" />
-            <select
-              value={period.kind}
-              onChange={e => setPeriod({ ...period, kind: e.target.value as PeriodKind })}
-              className={inputCls}
-            >
-              {(Object.keys(PERIOD_LABELS) as PeriodKind[]).map(k => (
-                <option key={k} value={k}>
-                  {PERIOD_LABELS[k]}
-                </option>
-              ))}
-            </select>
-
-            {period.kind !== 'custom' && (
-              <button
-                onClick={() => setPeriod(shiftPeriod(period, -1))}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700"
-                title="Kỳ trước"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-            )}
-
-            {period.kind === 'day' && (
-              <input type="date" value={period.anchor} onChange={e => e.target.value && setPeriod({ ...period, anchor: e.target.value })} className={inputCls} />
-            )}
-            {period.kind === 'week' && (
-              <>
-                <input type="date" value={period.anchor} onChange={e => e.target.value && setPeriod({ ...period, anchor: e.target.value })} className={inputCls} title="Chọn một ngày bất kỳ trong tuần" />
-                <span className="text-slate-500 font-medium">
-                  {from.slice(8)}/{from.slice(5, 7)} – {to.slice(8)}/{to.slice(5, 7)}/{to.slice(0, 4)}
-                </span>
-              </>
-            )}
-            {period.kind === 'month' && (
-              <input
-                type="month"
-                value={period.anchor.slice(0, 7)}
-                onChange={e => e.target.value && setPeriod({ ...period, anchor: `${e.target.value}-01` })}
-                className={inputCls}
-              />
-            )}
-            {period.kind === 'year' && (
-              <input
-                type="number"
-                min={2000}
-                max={2100}
-                value={period.anchor.slice(0, 4)}
-                onChange={e => e.target.value.length === 4 && setPeriod({ ...period, anchor: `${e.target.value}-01-01` })}
-                className={`${inputCls} w-24`}
-              />
-            )}
-            {period.kind === 'custom' && (
-              <>
-                <input type="date" value={period.customFrom} onChange={e => setPeriod({ ...period, customFrom: e.target.value })} className={inputCls} />
-                <span className="text-slate-500">đến</span>
-                <input type="date" value={period.customTo} onChange={e => setPeriod({ ...period, customTo: e.target.value })} className={inputCls} />
-              </>
-            )}
-
-            {period.kind !== 'custom' && (
-              <button
-                onClick={() => setPeriod(shiftPeriod(period, 1))}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700"
-                title="Kỳ sau"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {template !== 'payroll' && (
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-            <Cpu className="w-4 h-4 text-blue-500" />
-            Máy
-            <select value={machineId} onChange={e => setMachineId(e.target.value)} className={inputCls}>
-              <option value="all">Tất cả máy</option>
-              {machines.map(m => (
-                <option key={m.MachineBoxId} value={m.MachineBoxId}>
-                  {m.MachineName}
-                </option>
-              ))}
-            </select>
-          </label>
-          )}
-
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-            <Building2 className="w-4 h-4 text-amber-500" />
-            Phòng ban
-            <select value={department} onChange={e => setDepartment(e.target.value)} className={inputCls}>
-              <option value="all">Tất cả</option>
-              {departments.map(d => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-            <Search className="w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Tìm mã / tên NV…"
-              value={keyword}
-              onChange={e => setKeyword(e.target.value)}
-              className={`${inputCls} w-44`}
-            />
-          </label>
-
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-            Tên đơn vị
-            <input
-              type="text"
-              placeholder="In ở đầu báo cáo"
-              value={company}
-              onChange={e => setCompany(e.target.value)}
-              className={`${inputCls} w-48`}
-            />
-          </label>
-
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-            Bỏ chấm trùng trong
-            <select
-              value={dedupeSeconds}
-              onChange={e => setDedupeSeconds(Number(e.target.value))}
-              className={inputCls}
-            >
-              <option value={0}>Không lọc</option>
-              <option value={30}>30 giây</option>
-              <option value={60}>1 phút</option>
-              <option value={180}>3 phút</option>
-              <option value={300}>5 phút</option>
-            </select>
-          </label>
-        </div>
-
-        {rangeInvalid && (
-          <div className="rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-4 py-3 text-xs text-rose-700 dark:text-rose-300 font-semibold">
-            Khoảng thời gian không hợp lệ: ngày bắt đầu phải trước ngày kết thúc và tối đa {MAX_RANGE_DAYS} ngày.
-          </div>
-        )}
-        {!rangeInvalid && loadingLogs && (
-          <div className="text-xs text-slate-500 dark:text-slate-400">Đang tải dữ liệu chấm công của kỳ này…</div>
-        )}
-        {!rangeInvalid && logsError && (
-          <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 px-4 py-3 text-xs text-amber-800 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2">
-            <span>
-              <b>Chưa tải đủ dữ liệu của kỳ này:</b> {logsError}. Báo cáo bên dưới đang dùng dữ liệu có sẵn trên màn hình và có thể thiếu lượt chấm. Đừng dùng để chốt công.
-            </span>
-            <button onClick={() => setReloadTick(t => t + 1)} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white font-semibold">
-              Tải lại
-            </button>
-          </div>
-        )}
-
-        {(template === 'daily' || template === 'payroll') && (
-          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 px-4 py-3 text-xs text-slate-600 dark:text-slate-300 space-y-1">
-            <p>
-              <b>Ca làm việc, ngày nghỉ, ngày lễ, nghỉ phép</b> lấy từ tab <b>Cấu hình ca &amp; lịch làm việc</b>. Hiện có{' '}
-              {config.shifts.length} ca, {config.holidays.length} ngày lễ, {config.leaves.length} lượt nghỉ phép.
-              {template === 'payroll' && !config.rules.otEnabled && ' Tính tăng ca đang tắt.'}
-            </p>
-            {template === 'payroll' && payrollReport && payrollSummary.unconfirmed + payrollSummary.incomplete > 0 && (
-              <p className="text-amber-700 dark:text-amber-400 font-semibold">
-                Cần kiểm tra trước khi chốt: {payrollSummary.unconfirmed} ngày làm việc chưa có dữ liệu chấm công và{' '}
-                {payrollSummary.incomplete} ngày chỉ có 1 lượt chấm, thuộc {payrollSummary.people} nhân viên. Những ngày này
-                chưa được tính công và chưa kết luận là vắng mặt. Hãy đối chiếu với nghỉ phép, đi công tác hoặc lỗi máy.
-              </p>
-            )}
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {total.toLocaleString('vi-VN')} dòng dữ liệu
-            {template === 'machine' && machineReport && ` • tối đa ${machineReport.maxPunches} lần chấm/ngày`}
-          </p>
+    <div className="space-y-6">
+      {/* Top Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-teal-500/10 via-emerald-500/10 to-slate-100 dark:from-teal-950/40 dark:via-emerald-950/40 dark:to-slate-900 border border-teal-200/60 dark:border-teal-800/60">
+        <div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => runExport('csv')}
-              disabled={busy}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs sm:text-sm font-semibold transition disabled:opacity-50"
-            >
-              <Download className="w-4 h-4" />
-              CSV
-            </button>
-            <button
-              onClick={() => runExport('pdf')}
-              disabled={busy}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs sm:text-sm font-semibold transition disabled:opacity-50"
-            >
-              <FileText className="w-4 h-4" />
-              In / Xuất PDF
-            </button>
-            <button
-              onClick={() => runExport('xlsx')}
-              disabled={busy}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-md shadow-emerald-500/20 transition disabled:opacity-50"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              {busy ? 'Đang xuất…' : 'Xuất Excel'}
-            </button>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-600 text-white">
+              Module 7
+            </span>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              Mẫu Bảng Công & Xuất Excel
+            </h2>
           </div>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+            Tùy biến cột hiển thị, tạo mẫu chuyên nghiệp theo ca, theo máy hoặc ma trận tháng, lưu template cho kế toán và nhân sự
+          </p>
         </div>
+
+        {canEdit && (
+          <button
+            onClick={() => {
+              const newTpl: TimesheetTemplate = {
+                id: `tpl-${Date.now()}`,
+                name: 'Mẫu bảng công tùy biến mới',
+                description: 'Tùy chỉnh các cột theo yêu cầu doanh nghiệp',
+                baseType: 'shift_detail',
+                isDefault: false,
+                createdAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+                columns: [
+                  { key: 'stt', label: 'STT', visible: true, order: 1 },
+                  { key: 'employeeCode', label: 'Mã NV', visible: true, order: 2 },
+                  { key: 'employeeName', label: 'Họ và tên', visible: true, order: 3 },
+                  { key: 'department', label: 'Phòng ban', visible: true, order: 4 },
+                  { key: 'date', label: 'Ngày', visible: true, order: 5 },
+                  { key: 'minIn', label: 'Vào Sớm Nhất (MIN)', visible: true, order: 6 },
+                  { key: 'maxOut', label: 'Ra Muộn Nhất (MAX)', visible: true, order: 7 },
+                  { key: 'shiftCode', label: 'Mã Ca', visible: true, order: 8 },
+                  { key: 'standardIn', label: 'Giờ Vào Chuẩn', visible: true, order: 9 },
+                  { key: 'standardOut', label: 'Giờ Ra Chuẩn', visible: true, order: 10 },
+                  { key: 'lateMinutes', label: 'Phút vào Trễ', visible: true, order: 11 },
+                  { key: 'earlyMinutes', label: 'Phút về Sớm', visible: true, order: 12 },
+                  { key: 'workHours', label: 'Giờ công', visible: true, order: 13 }
+                ]
+              };
+              setEditingTemplate(newTpl);
+              setIsModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium shadow-md shadow-teal-600/20 transition self-start md:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            Tạo mẫu bảng công mới
+          </button>
+        )}
       </div>
 
-      {/* Bảng */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-          <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-            {template === 'machine'
-              ? 'Mẫu 6: Nhật ký chấm công theo máy'
-              : template === 'daily'
-                ? 'Mẫu 2: Báo cáo chấm công chi tiết'
-                : 'Mẫu 5: Tổng hợp công phục vụ tính lương'}
-          </h3>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">{subtitle}</p>
-        </div>
+      {/* Templates List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {templates.map(tpl => (
+          <div
+            key={tpl.id}
+            className={`p-5 rounded-2xl border transition relative flex flex-col justify-between ${
+              tpl.isDefault
+                ? 'bg-teal-50/50 dark:bg-teal-950/20 border-teal-300 dark:border-teal-800 shadow-sm'
+                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">
+                  {tpl.baseType === 'device_detail' && 'Mẫu theo máy'}
+                  {tpl.baseType === 'shift_detail' && 'Mẫu theo ca'}
+                  {tpl.baseType === 'monthly_matrix' && 'Mẫu ma trận tháng'}
+                </span>
 
-        <div className="overflow-x-auto max-h-[65vh]">
-          {template === 'machine' && machineReport && (
-            <table className="w-full text-xs border-collapse">
-              <thead className="sticky top-0 z-10 bg-emerald-700 text-white">
-                <tr>
-                  <th className={thCls}>Mã NV</th>
-                  <th className={`${thCls} text-left`}>Tên NV</th>
-                  <th className={thCls}>Ngày</th>
-                  <th className={thCls}>Máy</th>
-                  {Array.from({ length: machineReport.maxPunches }, (_, i) => (
-                    <th key={i} className={thCls}>
-                      Lần {i + 1}
-                    </th>
+                <div className="flex items-center gap-1">
+                  {tpl.isDefault ? (
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-teal-600 dark:text-teal-400 bg-teal-100/60 dark:bg-teal-950 px-2 py-0.5 rounded-md">
+                      <Star className="w-3.5 h-3.5 fill-current" /> Mặc định
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleSetDefault(tpl)}
+                      className="text-xs text-slate-400 hover:text-teal-600 px-1.5 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                      title="Đặt làm mẫu mặc định"
+                    >
+                      Đặt mặc định
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base mb-1">
+                {tpl.name}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4">
+                {tpl.description}
+              </p>
+
+              {/* Columns preview */}
+              <div className="mb-4">
+                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                  Cột dữ liệu ({tpl.columns.filter(c => c.visible).length}/{tpl.columns.length}):
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {tpl.columns.map(c => (
+                    <span
+                      key={c.key}
+                      className={`text-[11px] px-2 py-0.5 rounded-md border font-medium ${
+                        c.visible
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                          : 'bg-slate-50 dark:bg-slate-900 text-slate-400 line-through border-slate-200/50 dark:border-slate-800'
+                      }`}
+                    >
+                      {c.label}
+                    </span>
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {machineReport.rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={4 + machineReport.maxPunches} className="py-12 text-center text-slate-400">
-                      Chưa có dữ liệu chấm công cho bộ lọc đã chọn
-                    </td>
-                  </tr>
-                ) : (
-                  pageRows(machineReport.rows).map(r => (
-                    <tr key={`${r.code}|${r.date}|${r.machineId}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className={`${tdCls} text-center font-mono font-bold`}>{r.code}</td>
-                      <td className={`${tdCls} font-medium text-slate-900 dark:text-white`}>{r.name}</td>
-                      <td className={`${tdCls} text-center`}>{formatDateVi(r.date)}</td>
-                      <td className={tdCls}>{r.machineName}</td>
-                      {Array.from({ length: machineReport.maxPunches }, (_, i) => (
-                        <td key={i} className={`${tdCls} text-center font-mono`}>
-                          {r.punches[i] || <span className="text-slate-300 dark:text-slate-700">—</span>}
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
+                </div>
+              </div>
+            </div>
 
-          {template === 'daily' && dailyReport && (
-            <table className="w-full text-xs border-collapse">
-              <thead className="sticky top-0 z-10 bg-emerald-700 text-white">
-                <tr>
-                  {[
-                    'STT',
-                    'Mã NV',
-                    'Họ và tên',
-                    'Phòng ban',
-                    'Ngày',
-                    'Vào sớm nhất (MIN)',
-                    'Ra muộn nhất (MAX)',
-                    'Mã ca',
-                    'Giờ vào chuẩn',
-                    'Giờ ra chuẩn',
-                    'Phút vào trễ',
-                    'Phút về sớm',
-                    'Giờ công'
-                  ].map(h => (
-                    <th key={h} className={thCls}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {dailyReport.length === 0 ? (
-                  <tr>
-                    <td colSpan={13} className="py-12 text-center text-slate-400">
-                      Chưa có dữ liệu chấm công cho bộ lọc đã chọn
-                    </td>
-                  </tr>
-                ) : (
-                  pageRows(dailyReport).map(r => (
-                    <tr key={`${r.code}|${r.date}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className={`${tdCls} text-center text-slate-500`}>{r.stt}</td>
-                      <td className={`${tdCls} text-center font-mono font-bold`}>{r.code}</td>
-                      <td className={`${tdCls} font-medium text-slate-900 dark:text-white`}>{r.name}</td>
-                      <td className={tdCls}>{r.department}</td>
-                      <td className={`${tdCls} text-center`}>{formatDateVi(r.date)}</td>
-                      <td className={`${tdCls} text-center font-mono`}>{r.firstIn}</td>
-                      <td className={`${tdCls} text-center font-mono`}>
-                        {r.lastOut || <span className="text-amber-600 dark:text-amber-400">{r.note}</span>}
-                      </td>
-                      <td className={`${tdCls} text-center`}>{r.shiftCode}</td>
-                      <td className={`${tdCls} text-center font-mono`}>{r.stdIn}</td>
-                      <td className={`${tdCls} text-center font-mono`}>{r.stdOut}</td>
-                      <td
-                        className={`${tdCls} text-center font-bold ${
-                          r.lateMinutes > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'
-                        }`}
-                      >
-                        {r.lateMinutes}
-                      </td>
-                      <td
-                        className={`${tdCls} text-center font-bold ${
-                          r.earlyMinutes > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-400'
-                        }`}
-                      >
-                        {r.earlyMinutes}
-                      </td>
-                      <td className={`${tdCls} text-center font-bold text-emerald-600 dark:text-emerald-400`}>
-                        {r.workHours.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] text-slate-400">
+                Tạo lúc: {tpl.createdAt?.slice(0, 10) || 'Hệ thống'}
+              </span>
 
-          {template === 'payroll' && payrollReport && (
-            <table className="w-full text-xs border-collapse">
-              <thead className="sticky top-0 z-10 bg-emerald-700 text-white">
-                <tr>
-                  {[
-                    'STT', 'Mã NV', 'Họ và tên', 'Phòng ban', 'Mã ca', 'Công chuẩn', 'Công thực tế', 'Công phép',
-                    'Công lễ', 'Tổng công hưởng lương', 'Nghỉ không lương', 'Ngày chưa có dữ liệu',
-                    'Ngày thiếu lượt chấm', 'Phút đi muộn', 'Phút về sớm', 'TC ngày thường (giờ)',
-                    'TC ngày nghỉ (giờ)', 'TC ngày lễ (giờ)'
-                  ].map(h => (
-                    <th key={h} className={`${thCls} whitespace-normal min-w-[64px]`}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {payrollReport.length === 0 ? (
-                  <tr>
-                    <td colSpan={18} className="py-12 text-center text-slate-400">
-                      Chưa có nhân viên hoặc dữ liệu cho tháng này. Hãy đồng bộ dữ liệu từ máy chấm công rồi thử lại.
-                    </td>
-                  </tr>
-                ) : (
-                  pageRows(payrollReport).map(r => (
-                    <tr key={r.pid} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className={`${tdCls} text-center text-slate-500`}>{r.stt}</td>
-                      <td className={`${tdCls} text-center font-mono font-bold`}>{r.code}</td>
-                      <td className={`${tdCls} font-medium text-slate-900 dark:text-white`}>{r.name}</td>
-                      <td className={tdCls}>{r.department}</td>
-                      <td className={`${tdCls} text-center`}>{r.shiftCode}</td>
-                      <td className={`${tdCls} text-center`}>{r.standardDays}</td>
-                      <td className={`${tdCls} text-center font-bold`}>{r.actual}</td>
-                      <td className={`${tdCls} text-center`}>{r.leavePaid}</td>
-                      <td className={`${tdCls} text-center`}>{r.holidayPaid}</td>
-                      <td className={`${tdCls} text-center font-bold text-emerald-600 dark:text-emerald-400`}>{r.paidTotal}</td>
-                      <td className={`${tdCls} text-center`}>{r.unpaidDays}</td>
-                      <td className={`${tdCls} text-center font-bold ${r.unconfirmedDays > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
-                        {r.unconfirmedDays}
-                      </td>
-                      <td className={`${tdCls} text-center font-bold ${r.incompleteDays > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
-                        {r.incompleteDays}
-                      </td>
-                      <td className={`${tdCls} text-center ${r.lateMin > 0 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-400'}`}>{r.lateMin}</td>
-                      <td className={`${tdCls} text-center ${r.earlyMin > 0 ? 'text-orange-600 dark:text-orange-400 font-bold' : 'text-slate-400'}`}>{r.earlyMin}</td>
-                      <td className={`${tdCls} text-center`}>{r.otWeekday}</td>
-                      <td className={`${tdCls} text-center`}>{r.otOff}</td>
-                      <td className={`${tdCls} text-center`}>{r.otHoliday}</td>
-                    </tr>
-                  ))
+              <div className="flex items-center gap-1.5">
+                {canEdit && (
+                  <button
+                    onClick={() => {
+                      setEditingTemplate(tpl);
+                      setIsModalOpen(true);
+                    }}
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    title="Chỉnh sửa cột"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
                 )}
-              </tbody>
-            </table>
-          )}
-        </div>
 
-        {pageCount > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
-            <span>
-              Trang {page}/{pageCount}
-            </span>
-            <div className="flex items-center gap-2">
+                {canEdit && !tpl.id.startsWith('tpl-device-') && !tpl.id.startsWith('tpl-shift-') && !tpl.id.startsWith('tpl-monthly-') && (
+                  <button
+                    onClick={() => handleDeleteTemplate(tpl.id)}
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                    title="Xóa mẫu này"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Edit Column Modal */}
+      {isModalOpen && editingTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-teal-500" />
+                Cấu hình Mẫu bảng công: {editingTemplate.name}
+              </h3>
               <button
-                disabled={page <= 1}
-                onClick={() => setPage(p => p - 1)}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingTemplate(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg font-bold"
               >
-                <ChevronLeft className="w-4 h-4" />
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Tên mẫu bảng công *
+                </label>
+                <input
+                  type="text"
+                  value={editingTemplate.name}
+                  onChange={e => setEditingTemplate({ ...editingTemplate, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Mô tả
+                </label>
+                <input
+                  type="text"
+                  value={editingTemplate.description}
+                  onChange={e => setEditingTemplate({ ...editingTemplate, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-2">
+                  Bật / Tắt các cột hiển thị khi xem và xuất Excel:
+                </label>
+                <div className="space-y-2 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 max-h-60 overflow-y-auto">
+                  {editingTemplate.columns.map(col => (
+                    <div
+                      key={col.key}
+                      className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleColumn(col.key)}
+                          className={`w-5 h-5 rounded-md flex items-center justify-center transition ${
+                            col.visible
+                              ? 'bg-teal-600 text-white'
+                              : 'border border-slate-300 dark:border-slate-600'
+                          }`}
+                        >
+                          {col.visible && <Check className="w-3.5 h-3.5" />}
+                        </button>
+                        <span className={`text-sm font-medium ${col.visible ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 line-through'}`}>
+                          {col.label}
+                        </span>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={col.label}
+                        onChange={e => {
+                          const updated = editingTemplate.columns.map(c =>
+                            c.key === col.key ? { ...c, label: e.target.value } : c
+                          );
+                          setEditingTemplate({ ...editingTemplate, columns: updated });
+                        }}
+                        className="text-xs px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 max-w-[140px]"
+                        placeholder="Đổi tên cột"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingTemplate(null);
+                }}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Hủy
               </button>
               <button
-                disabled={page >= pageCount}
-                onClick={() => setPage(p => p + 1)}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40"
+                type="button"
+                onClick={handleSaveTemplate}
+                className="px-5 py-2 rounded-xl text-sm font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-md transition"
               >
-                <ChevronRight className="w-4 h-4" />
+                Lưu mẫu bảng công
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

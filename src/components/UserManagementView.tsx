@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   UserPlus,
@@ -12,11 +12,20 @@ import {
   AlertCircle,
   KeyRound,
   Shield,
-  CheckCircle2
+  CheckCircle2,
+  FileText,
+  Download,
+  Upload,
+  RefreshCw,
+  HardDrive,
+  ShieldAlert,
+  History,
+  Database
 } from 'lucide-react';
-import { SystemUser, RoleType, PermissionKey } from '../types/dahahi';
+import { SystemUser, RoleType, PermissionKey, AuditLogItem } from '../types/dahahi';
 import { useAuth } from '../context/AuthContext';
 import { PERMISSION_LIST } from '../mock/sampleData';
+import { DahahiDataService } from '../services/dahahiService';
 
 interface UserManagementViewProps {
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
@@ -36,10 +45,39 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ showToas
   } = useAuth();
 
   const canManageUsers = hasPermission('manage_users');
+  const isSuperAdmin = currentUser.role === 'SUPER_ADMIN';
 
-  const [activeSubTab, setActiveSubTab] = useState<'users' | 'matrix'>('users');
+  const [activeSubTab, setActiveSubTab] = useState<'users' | 'matrix' | 'audit' | 'backup'>('users');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
+
+  // Audit Logs state
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [auditFilter, setAuditFilter] = useState<'ALL' | 'SUCCESS' | 'WARNING' | 'ERROR'>('ALL');
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
+  // Backup & Restore state
+  const [restoreJson, setRestoreJson] = useState<string>('');
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  const loadAuditLogs = async () => {
+    setLoadingAudit(true);
+    try {
+      const logs = await DahahiDataService.getAuditLogs();
+      setAuditLogs(logs);
+    } catch (e: any) {
+      showToast('Lỗi tải nhật ký: ' + e.message, 'error');
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSubTab === 'audit') {
+      loadAuditLogs();
+    }
+  }, [activeSubTab]);
+
 
   // Form states
   const [formUsername, setFormUsername] = useState('');
@@ -157,7 +195,29 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ showToas
             }`}
           >
             <ShieldCheck className="w-4 h-4" />
-            Ma trận phân quyền (RBAC)
+            Ma trận quyền (RBAC)
+          </button>
+          <button
+            onClick={() => setActiveSubTab('audit')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition ${
+              activeSubTab === 'audit'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <History className="w-4 h-4" />
+            Nhật ký hoạt động (Audit)
+          </button>
+          <button
+            onClick={() => setActiveSubTab('backup')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition ${
+              activeSubTab === 'backup'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            Sao lưu & Khôi phục
           </button>
         </div>
 
@@ -171,6 +231,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ showToas
           </button>
         )}
       </div>
+
 
       {/* Tab 1: Users List */}
       {activeSubTab === 'users' && (
@@ -380,7 +441,227 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({ showToas
         </div>
       )}
 
-      {/* Modal: Create / Edit User */}
+      {/* Tab 3: Audit Logs */}
+
+      {activeSubTab === 'audit' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500">Lọc theo trạng thái:</span>
+              {(['ALL', 'SUCCESS', 'WARNING', 'ERROR'] as const).map(st => (
+                <button
+                  key={st}
+                  onClick={() => setAuditFilter(st)}
+                  className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition ${
+                    auditFilter === st
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  {st === 'ALL' && 'Tất cả'}
+                  {st === 'SUCCESS' && 'Thành công'}
+                  {st === 'WARNING' && 'Cảnh báo'}
+                  {st === 'ERROR' && 'Lỗi'}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={loadAuditLogs}
+              disabled={loadingAudit}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 transition"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingAudit ? 'animate-spin' : ''}`} />
+              Làm mới nhật ký
+            </button>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 font-semibold text-slate-500">
+                    <th className="py-3 px-4">Thời gian</th>
+                    <th className="py-3 px-4">Người thực hiện</th>
+                    <th className="py-3 px-4">Vai trò</th>
+                    <th className="py-3 px-4">Hành động</th>
+                    <th className="py-3 px-4">Đối tượng</th>
+                    <th className="py-3 px-4">Trạng thái</th>
+                    <th className="py-3 px-4">Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
+                  {auditLogs
+                    .filter(log => auditFilter === 'ALL' || log.status === auditFilter)
+                    .map(log => (
+                      <tr key={log.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                        <td className="py-3 px-4 text-slate-500 whitespace-nowrap">{log.timestamp}</td>
+                        <td className="py-3 px-4 font-sans font-medium text-slate-900 dark:text-white">{log.userName}</td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            {log.userRole}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">{log.action}</td>
+                        <td className="py-3 px-4 font-sans text-slate-600 dark:text-slate-400">{log.target}</td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                            log.status === 'SUCCESS'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                              : log.status === 'WARNING'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                              : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                          }`}>
+                            {log.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-sans text-slate-500 max-w-xs truncate" title={log.details || ''}>
+                          {log.details || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  {auditLogs.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400 font-sans">
+                        Chưa có bản ghi nhật ký hoạt động nào.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: Backup & Restore */}
+      {activeSubTab === 'backup' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Download Backup */}
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">
+                  <Download className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                    Tải về Bản sao lưu Hệ thống
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Xuất toàn bộ cấu hình thiết bị, hồ sơ nhân sự, ảnh Face ID, lịch sử chấm công ra file JSON an toàn.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
+                <div className="flex justify-between">
+                  <span>Phiên bản sao lưu:</span>
+                  <span className="font-bold text-emerald-600">v3.0.0 (Enterprise)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Định dạng file:</span>
+                  <span className="font-mono">dahahi_backup_YYYY-MM-DD.json</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Khả năng khôi phục:</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200">100% nguyên trạng hệ thống</span>
+                </div>
+              </div>
+
+              <a
+                href="/api/system/backup"
+                download
+                className="inline-flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md shadow-emerald-600/20 transition"
+              >
+                <Download className="w-4 h-4" />
+                Tải xuống bản sao lưu (.json)
+              </a>
+            </div>
+
+            {/* Restore Backup */}
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400">
+                  <Upload className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                    Khôi phục Dữ liệu từ File JSON
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Nạp lại toàn bộ cấu hình, hồ sơ nhân sự và chấm công từ file sao lưu trước đó.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Chọn file sao lưu (.json) từ máy tính:
+                </label>
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = ev => {
+                        const content = ev.target?.result as string;
+                        setRestoreJson(content);
+                      };
+                      reader.readAsText(file);
+                    }
+                  }}
+                  className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 dark:file:bg-slate-800 file:text-slate-700 dark:file:text-slate-300 hover:file:bg-slate-200 cursor-pointer"
+                />
+              </div>
+
+              {restoreJson && (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                  <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    Đã đọc file JSON ({Math.round(restoreJson.length / 1024)} KB). Khi nhấn "Tiến hành khôi phục", dữ liệu hiện tại sẽ được cập nhật đồng bộ với bản sao lưu.
+                  </span>
+                </div>
+              )}
+
+              <button
+                disabled={!restoreJson || isRestoring || !isSuperAdmin}
+                onClick={async () => {
+                  if (!isSuperAdmin) {
+                    showToast('Chỉ Super Admin mới có quyền thực hiện khôi phục hệ thống', 'error');
+                    return;
+                  }
+                  if (!confirm('Bạn có chắc chắn muốn khôi phục hệ thống từ file này? Dữ liệu hiện tại sẽ được ghi đè.')) {
+                    return;
+                  }
+                  setIsRestoring(true);
+                  try {
+                    const parsed = JSON.parse(restoreJson);
+                    const res = await DahahiDataService.restoreSystemBackup(parsed);
+                    if (res.ok) {
+                      showToast(res.message || 'Khôi phục hệ thống thành công!', 'success');
+                      setRestoreJson('');
+                    } else {
+                      showToast(res.error || 'Lỗi khi khôi phục dữ liệu', 'error');
+                    }
+                  } catch (e: any) {
+                    showToast('File JSON không hợp lệ: ' + e.message, 'error');
+                  } finally {
+                    setIsRestoring(false);
+                  }
+                }}
+                className="flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold text-sm shadow-md shadow-amber-600/20 transition"
+              >
+                <RefreshCw className={`w-4 h-4 ${isRestoring ? 'animate-spin' : ''}`} />
+                Tiến hành Khôi phục Hệ thống
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden">
