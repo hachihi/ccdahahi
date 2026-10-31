@@ -10,7 +10,8 @@ export { formatDateVi };
 /* ------------------------------------------------------------------ */
 
 export interface ReportFilter {
-  month: string; // "YYYY-MM"
+  from: string; // YYYY-MM-DD
+  to: string; // YYYY-MM-DD
   machineId: string; // "all" hoặc MachineBoxId
   department: string; // "all" hoặc tên phòng ban
   keyword: string; // tìm theo mã / tên
@@ -66,7 +67,7 @@ export const buildMachineDetailReport = (
   const groups = new Map<string, MachineDetailRow>();
 
   const sorted = logs
-    .filter(l => l.time && l.time.startsWith(filter.month))
+    .filter(l => l.time && l.time.slice(0, 10) >= filter.from && l.time.slice(0, 10) <= filter.to)
     .filter(l => filter.machineId === 'all' || l.m === filter.machineId)
     .slice()
     .sort((a, b) => a.time.localeCompare(b.time));
@@ -109,7 +110,8 @@ export const buildDailyDetailReport = (
     logs,
     employees,
     config,
-    month: filter.month,
+    from: filter.from,
+    to: filter.to,
     machineId: filter.machineId,
     dedupeSeconds: filter.dedupeSeconds
   });
@@ -153,10 +155,11 @@ export const buildPayrollReport = (
     logs,
     employees,
     config,
-    month: filter.month,
+    from: filter.from,
+    to: filter.to,
     machineId: 'all',
     dedupeSeconds: filter.dedupeSeconds
   }).filter(d => matches(d.department, d.code, d.name, filter));
 
-  return summarizePayroll(days, config, filter.month);
+  return summarizePayroll(days, config, filter.from, filter.to);
 };

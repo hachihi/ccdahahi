@@ -387,7 +387,7 @@ export class DahahiDataService {
   }
 
   // Save / Update employee and push to machine
-  static async saveEmployee(emp: Partial<Employee>): Promise<{ ok: boolean; employee?: Employee; pushResults?: Record<string, string>; error?: string; warn?: string }> {
+  static async saveEmployee(emp: Partial<Employee>): Promise<{ ok: boolean; employee?: Employee; pushResults?: Record<string, string>; failedMachines?: string[]; error?: string; warn?: string }> {
     const cachedSettings = getLocalItem<ConnectionSettings>(LS_SETTINGS, DEFAULT_SETTINGS);
     const res = await fetch('/api/employees', {
       method: 'POST',
@@ -413,12 +413,44 @@ export class DahahiDataService {
     return json;
   }
 
-  // Delete employee from machine and database
-  static async deleteEmployee(id: string): Promise<{ ok: boolean; machineResults?: Record<string, string>; error?: string }> {
-    const current = getLocalItem<Employee[]>(LS_EMPLOYEES, []);
-    setLocalItem(LS_EMPLOYEES, current.filter(e => e.id !== id));
-    const res = await fetch(`/api/employees/${encodeURIComponent(id)}`, {
-      method: 'DELETE'
+  // Xóa nhân viên: chỉ xóa khỏi bộ nhớ trình duyệt SAU KHI máy chủ xác nhận đã xóa.
+  // force = true: xóa khỏi hệ thống kể cả khi máy chưa xóa được.
+  static async deleteEmployee(
+    id: string,
+    force = false
+  ): Promise<{ ok: boolean; deleted?: boolean; pending?: boolean; forced?: boolean; machineResults?: Record<string, string>; warn?: string; error?: string }> {
+    const cachedSettings = getLocalItem<ConnectionSettings>(LS_SETTINGS, DEFAULT_SETTINGS);
+    const res = await fetch(`/api/employees/${encodeURIComponent(id)}${force ? '?force=true' : ''}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ host: cachedSettings.host, secret: cachedSettings.secretKey, force })
+    });
+    const json = await res.json();
+    if (json.ok && json.deleted) {
+      const current = getLocalItem<Employee[]>(LS_EMPLOYEES, []);
+      setLocalItem(LS_EMPLOYEES, current.filter(e => e.id !== id));
+    }
+    return json;
+  }
+
+  // Thử lại các mục chưa đồng bộ của một nhân viên
+  static async retryEmployee(id: string): Promise<{ ok: boolean; deleted?: boolean; stillFailing?: boolean; error?: string }> {
+    const cachedSettings = getLocalItem<ConnectionSettings>(LS_SETTINGS, DEFAULT_SETTINGS);
+    const res = await fetch(`/api/employees/${encodeURIComponent(id)}/retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ host: cachedSettings.host, secret: cachedSettings.secretKey })
+    });
+    return await res.json();
+  }
+
+  // Thử lại hàng loạt, mỗi lần một lô nhỏ. Gọi lại cho tới khi remaining = 0.
+  static async retryFailedEmployees(limit = 15): Promise<{ ok: boolean; processed?: number; fixed?: number; removed?: number; remaining?: number; error?: string }> {
+    const cachedSettings = getLocalItem<ConnectionSettings>(LS_SETTINGS, DEFAULT_SETTINGS);
+    const res = await fetch('/api/employees/retry-failed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit, host: cachedSettings.host, secret: cachedSettings.secretKey })
     });
     return await res.json();
   }
@@ -504,6 +536,24 @@ export class DahahiDataService {
       setLocalItem(LS_LOGS, freshLogs);
     }
     return json;
+  }
+
+  // Lấy ĐỦ log của một khoảng ngày cho báo cáo (không cắt 3.000 dòng, không ghi đè bộ nhớ đệm)
+  static async fetchLogsRange(from: string, to: string): Promise<{ ok: boolean; logs: AttendanceLog[]; error?: string }> {
+    try {
+      const q = new URLSearchParams({ from, to });
+      const res = await fetch(`/api/logs?${q.toString()}`);
+      if (!res.ok) return { ok: false, logs: [], error: `Máy chủ trả lỗi HTTP ${res.status}` };
+      const list = await res.json();
+      if (!Array.isArray(list)) return { ok: false, logs: [], error: 'Dữ liệu trả về không hợp lệ' };
+      const total = Number(res.headers.get('X-Total-Count') || list.length);
+      if (total > list.length) {
+        return { ok: false, logs: list, error: `Chỉ nhận được ${list.length}/${total} bản ghi` };
+      }
+      return { ok: true, logs: list };
+    } catch (e: any) {
+      return { ok: false, logs: [], error: e?.message || 'Không kết nối được máy chủ' };
+    }
   }
 
   // Get attendance logs

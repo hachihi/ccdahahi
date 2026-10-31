@@ -1,6 +1,6 @@
 import { AttendanceLog, Employee } from '../types/dahahi';
 import { Shift, WorkConfig, resolveShift, shiftSpan } from './workConfig';
-import { addDays, daysOfMonth, fmtAbs, overlap, todayVN, weekdayOf } from './timeUtils';
+import { addDays, datesBetween, fmtAbs, overlap, todayVN, weekdayOf } from './timeUtils';
 
 /** Lượt chấm sau giờ ra của ca đêm trong khoảng này vẫn thuộc ngày làm việc hôm trước */
 const OVERNIGHT_CUTOFF_AFTER_END = 180;
@@ -62,7 +62,8 @@ export interface ComputeParams {
   logs: AttendanceLog[];
   employees: Employee[];
   config: WorkConfig;
-  month: string; // YYYY-MM
+  from: string; // YYYY-MM-DD (gồm cả ngày này)
+  to: string; // YYYY-MM-DD (gồm cả ngày này)
   machineId: string; // 'all' hoặc MachineBoxId
   dedupeSeconds: number;
   today?: string; // để test; mặc định là hôm nay theo giờ Việt Nam
@@ -77,8 +78,8 @@ const applyOtRule = (raw: number, min: number, step: number): number => {
 };
 
 export const computeMonth = (p: ComputeParams): DayResult[] => {
-  const { config, month } = p;
-  const days = daysOfMonth(month);
+  const { config } = p;
+  const days = datesBetween(p.from, p.to);
   const first = days[0];
   const last = days[days.length - 1];
   const lo = addDays(first, -1);
@@ -258,8 +259,8 @@ export interface PayrollRow {
 
 const r2 = (v: number): number => Math.round(v * 100) / 100;
 
-export const summarizePayroll = (days: DayResult[], config: WorkConfig, month: string): PayrollRow[] => {
-  const standardDays = daysOfMonth(month).filter(d => !config.weeklyOff.includes(weekdayOf(d))).length;
+export const summarizePayroll = (days: DayResult[], config: WorkConfig, from: string, to: string): PayrollRow[] => {
+  const standardDays = datesBetween(from, to).filter(d => !config.weeklyOff.includes(weekdayOf(d))).length;
   const byPid = new Map<string, DayResult[]>();
   for (const d of days) {
     const arr = byPid.get(d.pid);
