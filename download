@@ -1,0 +1,12 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Dữ liệu chạy thật, có khóa bí mật và ảnh khuôn mặt, không đưa lên git
+settings.json
+data.json
