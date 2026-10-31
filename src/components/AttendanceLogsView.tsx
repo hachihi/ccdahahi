@@ -298,7 +298,7 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
 
                       {/* Similarity */}
                       <td className="py-3.5 px-4 text-xs font-mono text-slate-600 dark:text-slate-400">
-                        {log.similarity ? `${log.similarity}%` : '98.5%'}
+                        {log.similarity ? `${log.similarity}%` : '—'}
                       </td>
 
                       {/* Status */}

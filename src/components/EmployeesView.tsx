@@ -20,9 +20,10 @@ import {
   Check,
   X,
   UserCheck,
-  UserX
+  UserX,
+  RotateCcw
 } from 'lucide-react';
-import { Employee, DahahiMachine, ConnectionSettings } from '../types/dahahi';
+import { Employee, DahahiMachine, ConnectionSettings, employeeNeedsAttention } from '../types/dahahi';
 import { useAuth } from '../context/AuthContext';
 import {
   DahahiDataService,
@@ -205,7 +206,9 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
       if (res && res.ok) {
         onRefreshData();
         setIsModalOpen(false);
-        if (res.pushResults && Object.keys(res.pushResults).length > 0) {
+        if (res.failedMachines && res.failedMachines.length > 0) {
+          showToast(res.warn || `Đã lưu nhưng đẩy lên máy thất bại ở ${res.failedMachines.length} máy. Bấm "Đẩy lại" để thử lại.`, 'error');
+        } else if (res.pushResults && Object.keys(res.pushResults).length > 0) {
           const successCount = Object.values(res.pushResults).filter(v => v === 'OK').length;
           showToast(`Đã lưu và đẩy nhân sự lên ${successCount}/${formMachines.length} máy`, 'success');
         } else {
@@ -221,22 +224,88 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
     }
   };
 
-  // Delete Employee (Removes from Dahahi machines and server database)
+  // Delete Employee: chỉ xóa hẳn khi mọi máy đã xác nhận
   const handleDeleteEmployee = async (emp: Employee) => {
     if (!confirm(`Bạn có chắc muốn xóa nhân viên "${emp.name}" (Mã: ${emp.id}) khỏi hệ thống và máy chấm công?`)) {
       return;
     }
     setIsLoading(true);
     try {
-      const res = await DahahiDataService.deleteEmployee(emp.id);
-      if (res && res.ok) {
-        onRefreshData();
-        showToast(`Đã xóa nhân viên ${emp.name} thành công khỏi hệ thống và máy chấm công`, 'success');
+      let res = await DahahiDataService.deleteEmployee(emp.id);
+      if (res && res.ok && res.pending) {
+        const detail = Object.entries(res.machineResults || {})
+          .filter(([, v]) => v !== 'OK')
+          .map(([m, v]) => `- ${machines.find(x => x.MachineBoxId === m)?.MachineName || m}: ${v}`)
+          .join('\n');
+        const forceIt = confirm(
+          `Chưa xóa được "${emp.name}" trên một số máy:\n${detail}\n\n` +
+            'Bấm OK để vẫn xóa khỏi hệ thống (dữ liệu trên máy đó sẽ còn lại, cần xóa tay).\n' +
+            'Bấm Hủy để giữ ở trạng thái "Chờ xóa" và thử lại sau.'
+        );
+        if (forceIt) {
+          res = await DahahiDataService.deleteEmployee(emp.id, true);
+        }
+      }
+      onRefreshData();
+      if (res && res.ok && res.deleted) {
+        showToast(
+          res.forced
+            ? `Đã xóa ${emp.name} khỏi hệ thống. Cần xóa tay trên máy chưa xóa được.`
+            : `Đã xóa nhân viên ${emp.name} khỏi hệ thống và máy chấm công`,
+          res.forced ? 'info' : 'success'
+        );
+      } else if (res && res.ok && res.pending) {
+        showToast(`${emp.name} đang ở trạng thái "Chờ xóa" trên máy. Bấm "Đẩy lại" khi máy sẵn sàng.`, 'info');
       } else {
         showToast(res?.error || 'Lỗi khi xóa nhân viên', 'error');
       }
     } catch (err: any) {
       showToast(err.message || 'Lỗi xóa nhân viên', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Thử lại các mục chưa đồng bộ của một nhân viên
+  const handleRetryOne = async (emp: Employee) => {
+    setIsLoading(true);
+    try {
+      const res = await DahahiDataService.retryEmployee(emp.id);
+      onRefreshData();
+      if (!res.ok) showToast(res.error || 'Không thể thử lại', 'error');
+      else if (res.deleted) showToast(`Đã xóa ${emp.name} trên mọi máy`, 'success');
+      else if (res.stillFailing) showToast(`${emp.name}: vẫn còn máy chưa đồng bộ được. Kiểm tra kết nối máy rồi thử lại.`, 'error');
+      else showToast(`Đã đồng bộ ${emp.name} lên máy thành công`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi thử lại', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Thử lại hàng loạt theo lô cho tới khi hết hoặc không tiến triển
+  const handleRetryAll = async () => {
+    setIsLoading(true);
+    try {
+      let lastRemaining = Infinity;
+      let remaining = 0;
+      for (let round = 0; round < 20; round++) {
+        const res = await DahahiDataService.retryFailedEmployees(15);
+        if (!res.ok) {
+          showToast(res.error || 'Không thể thử lại', 'error');
+          break;
+        }
+        remaining = res.remaining ?? 0;
+        if (remaining === 0 || remaining >= lastRemaining) break;
+        lastRemaining = remaining;
+      }
+      onRefreshData();
+      showToast(
+        remaining === 0 ? 'Đã đồng bộ xong tất cả mục lỗi' : `Còn ${remaining} nhân viên chưa đồng bộ được. Kiểm tra kết nối máy rồi thử lại.`,
+        remaining === 0 ? 'success' : 'error'
+      );
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi thử lại', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -255,7 +324,11 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
     setIsLoading(true);
     try {
       const res = await DahahiDataService.saveEmployee(emp);
-      if (res && res.ok) {
+      if (res && res.ok && res.failedMachines && res.failedMachines.length > 0) {
+        onRefreshData();
+        showToast(`Đẩy ${emp.name} thất bại ở ${res.failedMachines.length} máy: ${Object.values(res.pushResults || {}).filter(v => v !== 'OK')[0] || 'lỗi không rõ'}`, 'error');
+      } else if (res && res.ok) {
+        onRefreshData();
         showToast(`Đã nạp ảnh khuôn mặt của ${emp.name} lên thiết bị máy chấm công thành công!`, 'success');
       } else {
         showToast(res?.error || 'Lỗi đẩy lên máy', 'error');
@@ -458,6 +531,8 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
     if (e.target) e.target.value = '';
   };
 
+  const attentionCount = employees.filter(employeeNeedsAttention).length;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Banner if no machine connected */}
@@ -469,6 +544,25 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
               Chưa có máy chấm công nào được kết nối. Hãy kết nối máy trước để thực hiện tải xuống danh sách, đẩy khuôn mặt và đồng bộ lịch sử.
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Cảnh báo nhân viên chưa đồng bộ đủ với máy */}
+      {attentionCount > 0 && (
+        <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 flex flex-wrap items-center justify-between gap-3 text-xs text-rose-800 dark:text-rose-200">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <span>
+              <b>{attentionCount} nhân viên</b> chưa đồng bộ đủ với máy chấm công (đẩy lỗi hoặc chờ xóa). Dữ liệu trên hệ thống và trên máy đang lệch nhau.
+            </span>
+          </div>
+          <button
+            onClick={handleRetryAll}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold disabled:opacity-50 transition"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Đẩy lại các mục lỗi
+          </button>
         </div>
       )}
 
@@ -702,6 +796,22 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
                               <AlertCircle className="w-3 h-3" /> Chưa có Face ID
                             </span>
                           )}
+                          {emp.pendingDelete && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400 font-semibold" title="Đã yêu cầu xóa nhưng chưa xóa được trên mọi máy">
+                              <AlertCircle className="w-3 h-3" /> Chờ xóa trên máy
+                            </span>
+                          )}
+                          {!emp.pendingDelete && Object.values(emp.sync || {}).some(x => x.status === 'failed') && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400 font-semibold"
+                              title={Object.entries(emp.sync || {})
+                                .filter(([, x]) => x.status === 'failed')
+                                .map(([m, x]) => `${machines.find(y => y.MachineBoxId === m)?.MachineName || m}: ${x.error || 'lỗi'}`)
+                                .join('\n')}
+                            >
+                              <AlertCircle className="w-3 h-3" /> Lỗi đồng bộ {Object.values(emp.sync || {}).filter(x => x.status === 'failed').length} máy
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -753,6 +863,17 @@ export const EmployeesView: React.FC<EmployeesViewProps> = ({
                       {/* Actions */}
                       <td className="py-3.5 pr-6 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
+                          {employeeNeedsAttention(emp) && (
+                            <button
+                              onClick={() => handleRetryOne(emp)}
+                              disabled={isLoading}
+                              className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition disabled:opacity-50"
+                              title="Đẩy lại các mục chưa đồng bộ lên máy chấm công"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                          )}
+
                           {/* Pull Face ID from machine / cloud button */}
                           <button
                             onClick={() => handlePullSingleFace(emp.id)}

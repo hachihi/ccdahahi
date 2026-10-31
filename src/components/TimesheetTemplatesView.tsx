@@ -9,7 +9,20 @@ import {
   formatDateVi
 } from '../services/timesheetReportService';
 import { WorkConfig } from '../services/workConfig';
-import { todayVN } from '../services/timeUtils';
+import { DahahiDataService } from '../services/dahahiService';
+import {
+  MAX_RANGE_DAYS,
+  PERIOD_LABELS,
+  PeriodKind,
+  PeriodState,
+  addDays,
+  daysBetweenCount,
+  periodFileSuffix,
+  periodTitle,
+  rangeOfPeriod,
+  shiftPeriod,
+  todayVN
+} from '../services/timeUtils';
 import { AttendanceLog, ConnectionSettings, DahahiMachine, Employee } from '../types/dahahi';
 
 export type TemplateId = 'machine' | 'daily' | 'payroll';
@@ -39,7 +52,39 @@ export const TimesheetTemplatesView: React.FC<Props> = ({
   config,
   showToast
 }) => {
-  const [month, setMonth] = useState(todayVN().slice(0, 7));
+  const [period, setPeriod] = useState<PeriodState>(() => {
+    const t = todayVN();
+    return { kind: 'month', anchor: t, customFrom: `${t.slice(0, 7)}-01`, customTo: t };
+  });
+  const { from, to } = rangeOfPeriod(period);
+  const rangeDays = daysBetweenCount(from, to);
+  const rangeInvalid = !from || !to || from > to || rangeDays > MAX_RANGE_DAYS;
+
+  // Dữ liệu chấm công đầy đủ của kỳ đã chọn, lấy từ máy chủ (kèm 1 ngày đệm hai đầu cho ca đêm)
+  const [rangeLogs, setRangeLogs] = useState<AttendanceLog[] | null>(null);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [logsError, setLogsError] = useState('');
+  const [reloadTick, setReloadTick] = useState(0);
+  useEffect(() => {
+    if (rangeInvalid) return;
+    let cancelled = false;
+    setLoadingLogs(true);
+    setLogsError('');
+    DahahiDataService.fetchLogsRange(addDays(from, -1), addDays(to, 1)).then(r => {
+      if (cancelled) return;
+      setLoadingLogs(false);
+      if (r.ok) setRangeLogs(r.logs);
+      else {
+        setRangeLogs(null);
+        setLogsError(r.error || 'Không tải được dữ liệu của kỳ này');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [from, to, rangeInvalid, reloadTick]);
+  // Khi không tải được thì dùng tạm dữ liệu sẵn có trên màn hình (có thể chưa đủ) và cảnh báo rõ
+  const effectiveLogs = rangeLogs ?? logs;
   const [machineId, setMachineId] = useState('all');
   const [department, setDepartment] = useState('all');
   const [keyword, setKeyword] = useState('');
@@ -60,29 +105,29 @@ export const TimesheetTemplatesView: React.FC<Props> = ({
       /* bỏ qua nếu trình duyệt chặn lưu */
     }
   }, [company]);
-  useEffect(() => setPage(1), [template, month, machineId, department, keyword, dedupeSeconds]);
+  useEffect(() => setPage(1), [template, from, to, machineId, department, keyword, dedupeSeconds]);
 
   const departments = useMemo(
     () => Array.from(new Set(employees.map(e => e.department || 'Chung'))).sort(),
     [employees]
   );
 
-  const filter: ReportFilter = { month, machineId, department, keyword, dedupeSeconds };
+  const filter: ReportFilter = { from, to, machineId, department, keyword, dedupeSeconds };
 
   const machineReport = useMemo(
-    () => (template === 'machine' ? buildMachineDetailReport(logs, employees, machines, filter) : null),
+    () => (template === 'machine' ? buildMachineDetailReport(effectiveLogs, employees, machines, filter) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, logs, employees, machines, month, machineId, department, keyword, dedupeSeconds]
+    [template, effectiveLogs, employees, machines, from, to, machineId, department, keyword, dedupeSeconds]
   );
   const dailyReport = useMemo(
-    () => (template === 'daily' ? buildDailyDetailReport(logs, employees, filter, config) : null),
+    () => (template === 'daily' ? buildDailyDetailReport(effectiveLogs, employees, filter, config) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, logs, employees, config, month, machineId, department, keyword, dedupeSeconds]
+    [template, effectiveLogs, employees, config, from, to, machineId, department, keyword, dedupeSeconds]
   );
   const payrollReport = useMemo(
-    () => (template === 'payroll' ? buildPayrollReport(logs, employees, filter, config) : null),
+    () => (template === 'payroll' ? buildPayrollReport(effectiveLogs, employees, filter, config) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, logs, employees, config, month, department, keyword, dedupeSeconds]
+    [template, effectiveLogs, employees, config, from, to, department, keyword, dedupeSeconds]
   );
 
   const payrollSummary = useMemo(() => {
@@ -108,8 +153,8 @@ export const TimesheetTemplatesView: React.FC<Props> = ({
   const deptLabel = department === 'all' ? 'Tất cả phòng ban' : department;
   const subtitle =
     template === 'payroll'
-      ? `Tháng ${month.slice(5)}/${month.slice(0, 4)}  |  Mọi máy  |  ${deptLabel}`
-      : `Tháng ${month.slice(5)}/${month.slice(0, 4)}  |  ${machineLabel}  |  ${deptLabel}`;
+      ? `${periodTitle(period.kind, from, to)}  |  Mọi máy  |  ${deptLabel}`
+      : `${periodTitle(period.kind, from, to)}  |  ${machineLabel}  |  ${deptLabel}`;
 
   /* ---------------------- Xuất file ---------------------- */
   const buildTable = (): ReportTable => {
@@ -119,7 +164,7 @@ export const TimesheetTemplatesView: React.FC<Props> = ({
         company,
         title: 'BÁO CÁO CHẤM CÔNG CHI TIẾT THEO MÁY',
         subtitle,
-        fileName: `bao_cao_cham_cong_theo_may_${month}`,
+        fileName: `bao_cao_cham_cong_theo_may_${periodFileSuffix(period.kind, from, to)}`,
         columns: [
           { header: 'Mã NV', width: 12 },
           { header: 'Tên NV', width: 28, align: 'left' },
@@ -145,7 +190,7 @@ export const TimesheetTemplatesView: React.FC<Props> = ({
         company,
         title: 'BẢNG TỔNG HỢP CÔNG PHỤC VỤ TÍNH LƯƠNG',
         subtitle,
-        fileName: `tong_hop_cong_tinh_luong_${month}`,
+        fileName: `tong_hop_cong_tinh_luong_${periodFileSuffix(period.kind, from, to)}`,
         columns: [
           { header: 'STT', width: 6 },
           { header: 'Mã NV', width: 11 },
@@ -188,7 +233,7 @@ export const TimesheetTemplatesView: React.FC<Props> = ({
       company,
       title: 'BÁO CÁO CHẤM CÔNG CHI TIẾT',
       subtitle,
-      fileName: `bao_cao_cham_cong_chi_tiet_${month}`,
+      fileName: `bao_cao_cham_cong_chi_tiet_${periodFileSuffix(period.kind, from, to)}`,
       columns: [
         { header: 'STT', width: 6 },
         { header: 'Mã NV', width: 12 },
@@ -233,6 +278,17 @@ export const TimesheetTemplatesView: React.FC<Props> = ({
   };
 
   const runExport = async (kind: 'xlsx' | 'pdf' | 'csv') => {
+    if (rangeInvalid) {
+      showToast('Khoảng thời gian không hợp lệ.', 'error');
+      return;
+    }
+    if (loadingLogs) {
+      showToast('Đang tải dữ liệu của kỳ này, vui lòng đợi vài giây rồi xuất lại.', 'info');
+      return;
+    }
+    if (logsError && !confirm(`Chưa tải đủ dữ liệu của kỳ này (${logsError}).\nFile xuất ra có thể thiếu lượt chấm và không nên dùng để chốt công.\n\nVẫn xuất file?`)) {
+      return;
+    }
     const t = buildTable();
     if (t.rows.length === 0) {
       showToast('Chưa có dữ liệu để xuất. Hãy kiểm tra lại tháng hoặc bộ lọc.', 'error');
@@ -267,11 +323,77 @@ export const TimesheetTemplatesView: React.FC<Props> = ({
       {/* Bộ lọc */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
             <Calendar className="w-4 h-4 text-emerald-500" />
-            Tháng
-            <input type="month" value={month} onChange={e => setMonth(e.target.value)} className={inputCls} />
-          </label>
+            <select
+              value={period.kind}
+              onChange={e => setPeriod({ ...period, kind: e.target.value as PeriodKind })}
+              className={inputCls}
+            >
+              {(Object.keys(PERIOD_LABELS) as PeriodKind[]).map(k => (
+                <option key={k} value={k}>
+                  {PERIOD_LABELS[k]}
+                </option>
+              ))}
+            </select>
+
+            {period.kind !== 'custom' && (
+              <button
+                onClick={() => setPeriod(shiftPeriod(period, -1))}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700"
+                title="Kỳ trước"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            )}
+
+            {period.kind === 'day' && (
+              <input type="date" value={period.anchor} onChange={e => e.target.value && setPeriod({ ...period, anchor: e.target.value })} className={inputCls} />
+            )}
+            {period.kind === 'week' && (
+              <>
+                <input type="date" value={period.anchor} onChange={e => e.target.value && setPeriod({ ...period, anchor: e.target.value })} className={inputCls} title="Chọn một ngày bất kỳ trong tuần" />
+                <span className="text-slate-500 font-medium">
+                  {from.slice(8)}/{from.slice(5, 7)} – {to.slice(8)}/{to.slice(5, 7)}/{to.slice(0, 4)}
+                </span>
+              </>
+            )}
+            {period.kind === 'month' && (
+              <input
+                type="month"
+                value={period.anchor.slice(0, 7)}
+                onChange={e => e.target.value && setPeriod({ ...period, anchor: `${e.target.value}-01` })}
+                className={inputCls}
+              />
+            )}
+            {period.kind === 'year' && (
+              <input
+                type="number"
+                min={2000}
+                max={2100}
+                value={period.anchor.slice(0, 4)}
+                onChange={e => e.target.value.length === 4 && setPeriod({ ...period, anchor: `${e.target.value}-01-01` })}
+                className={`${inputCls} w-24`}
+              />
+            )}
+            {period.kind === 'custom' && (
+              <>
+                <input type="date" value={period.customFrom} onChange={e => setPeriod({ ...period, customFrom: e.target.value })} className={inputCls} />
+                <span className="text-slate-500">đến</span>
+                <input type="date" value={period.customTo} onChange={e => setPeriod({ ...period, customTo: e.target.value })} className={inputCls} />
+              </>
+            )}
+
+            {period.kind !== 'custom' && (
+              <button
+                onClick={() => setPeriod(shiftPeriod(period, 1))}
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700"
+                title="Kỳ sau"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
+          </div>
 
           {template !== 'payroll' && (
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -338,6 +460,25 @@ export const TimesheetTemplatesView: React.FC<Props> = ({
             </select>
           </label>
         </div>
+
+        {rangeInvalid && (
+          <div className="rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-4 py-3 text-xs text-rose-700 dark:text-rose-300 font-semibold">
+            Khoảng thời gian không hợp lệ: ngày bắt đầu phải trước ngày kết thúc và tối đa {MAX_RANGE_DAYS} ngày.
+          </div>
+        )}
+        {!rangeInvalid && loadingLogs && (
+          <div className="text-xs text-slate-500 dark:text-slate-400">Đang tải dữ liệu chấm công của kỳ này…</div>
+        )}
+        {!rangeInvalid && logsError && (
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 px-4 py-3 text-xs text-amber-800 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2">
+            <span>
+              <b>Chưa tải đủ dữ liệu của kỳ này:</b> {logsError}. Báo cáo bên dưới đang dùng dữ liệu có sẵn trên màn hình và có thể thiếu lượt chấm. Đừng dùng để chốt công.
+            </span>
+            <button onClick={() => setReloadTick(t => t + 1)} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white font-semibold">
+              Tải lại
+            </button>
+          </div>
+        )}
 
         {(template === 'daily' || template === 'payroll') && (
           <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 px-4 py-3 text-xs text-slate-600 dark:text-slate-300 space-y-1">
