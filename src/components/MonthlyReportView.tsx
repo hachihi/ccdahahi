@@ -75,8 +75,9 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
   // 1. Data for Mẫu 1: Chi tiết theo máy (cứ mỗi lần chấm là thêm 1 cột)
   const deviceDetailReport = useMemo(() => {
     const filteredLogs = logs.filter(l => {
+      const emp = employees.find(e => e.id === l.pid);
+      if (selectedDept !== 'all' && emp?.department !== selectedDept) return false;
       if (searchEmployee.trim()) {
-        const emp = employees.find(e => e.id === l.pid);
         const nameMatch = (emp?.name || l.name || '').toLowerCase().includes(searchEmployee.toLowerCase());
         const codeMatch = (emp?.code || l.pid).toLowerCase().includes(searchEmployee.toLowerCase());
         if (!nameMatch && !codeMatch) return false;
@@ -89,7 +90,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
       dateStr: selectedDate || undefined,
       machineBoxId: selectedMachine !== 'all' ? selectedMachine : undefined
     });
-  }, [logs, employees, machines, selectedMonth, selectedDate, selectedMachine, searchEmployee]);
+  }, [logs, employees, machines, selectedMonth, selectedDate, selectedMachine, searchEmployee, selectedDept]);
 
   // 2. Data for Mẫu 2: Báo cáo chấm công chi tiết theo ca
   const shiftDetailReport = useMemo(() => {
@@ -159,22 +160,29 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
     return { totalWorkDays, totalHours, totalLate };
   }, [matrixReportRows]);
 
-  // Export CSV handler matching current template
-  const handleExportCsv = () => {
+  // 1. Export CSV for currently active template
+  const handleExportCurrentCsv = () => {
+    const deptTag = selectedDept !== 'all' ? `_${selectedDept.replace(/\s+/g, '_')}` : '';
+    const dateTag = selectedDate || selectedMonth;
+
     if (activeTemplate === 'device_detail') {
       const { rows, maxPunches } = deviceDetailReport;
       const punchHeaders = Array.from({ length: maxPunches }, (_, i) => `Lần ${i + 1}`);
-      const headers = ['Mã NV', 'Tên NV', 'Ngày', 'Máy', ...punchHeaders];
-      const dataRows = rows.map(r => [
-        r.employeeCode,
-        r.employeeName,
-        r.date,
-        r.machine,
-        ...Array.from({ length: maxPunches }, (_, i) => r.punches[i] || '')
-      ]);
-      const dateTag = selectedDate || selectedMonth;
-      downloadCsv(`bao_cao_chi_tiet_theo_may_${dateTag}.csv`, headers, dataRows);
-      showToast(`Đã xuất Mẫu 1: Chi tiết theo máy (${rows.length} dòng)`, 'success');
+      const headers = ['Mã NV', 'Tên NV', 'Phòng ban', 'Ngày', 'Máy', ...punchHeaders];
+      const dataRows = rows.map(r => {
+        const emp = employees.find(e => e.code === r.employeeCode || e.id === r.employeeCode);
+        return [
+          r.employeeCode,
+          r.employeeName,
+          emp?.department || '—',
+          r.date,
+          r.machine,
+          ...Array.from({ length: maxPunches }, (_, i) => r.punches[i] || '')
+        ];
+      });
+      const filename = `bang_cong_theo_may_${dateTag}${deptTag}.csv`;
+      downloadCsv(filename, headers, dataRows);
+      showToast(`Đã xuất dữ liệu bảng công theo máy (${rows.length} dòng) ra tệp CSV để lưu trữ`, 'success');
       return;
     }
 
@@ -184,6 +192,7 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
         'Mã NV',
         'Họ và tên',
         'Phòng ban',
+        'Chức vụ',
         'Ngày',
         'Vào Sớm Nhất (MIN)',
         'Ra Muộn Nhất (MAX)',
@@ -194,49 +203,109 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
         'Phút về Sớm',
         'Giờ công'
       ];
-      const dataRows = shiftDetailReport.map(r => [
-        r.stt,
-        r.employeeCode,
-        r.employeeName,
-        r.department,
-        r.date,
-        r.minIn,
-        r.maxOut,
-        r.shiftCode,
-        r.standardIn,
-        r.standardOut,
-        r.lateMinutes,
-        r.earlyMinutes,
-        r.workHours
-      ]);
-      const dateTag = selectedDate || selectedMonth;
-      downloadCsv(`bao_cao_cham_cong_chi_tiet_ca_${dateTag}.csv`, headers, dataRows);
-      showToast(`Đã xuất Mẫu 2: Báo cáo chấm công chi tiết (${shiftDetailReport.length} dòng)`, 'success');
+      const dataRows = shiftDetailReport.map(r => {
+        const emp = employees.find(e => e.code === r.employeeCode || e.id === r.employeeCode);
+        return [
+          r.stt,
+          r.employeeCode,
+          r.employeeName,
+          r.department || emp?.department || '—',
+          emp?.position || '—',
+          r.date,
+          r.minIn,
+          r.maxOut,
+          r.shiftCode,
+          r.standardIn,
+          r.standardOut,
+          r.lateMinutes,
+          r.earlyMinutes,
+          r.workHours
+        ];
+      });
+      const filename = `bang_cong_chi_tiet_ca_${dateTag}${deptTag}.csv`;
+      downloadCsv(filename, headers, dataRows);
+      showToast(`Đã xuất dữ liệu bảng công chi tiết ca (${shiftDetailReport.length} dòng) ra tệp CSV để lưu trữ`, 'success');
       return;
     }
 
     // Matrix
     const headers = [
-      'Mã NV',
+      'Mã NV (ID)',
+      'Mã nhân sự (Code)',
       'Họ và tên',
       'Phòng ban',
+      'Chức vụ',
       'Số ngày công',
-      'Tổng giờ làm',
+      'Tổng giờ làm (giờ)',
       'Số lần đi muộn',
       ...dayNumbers.map(d => `Ngày ${+d}`)
     ];
-    const dataRows = matrixReportRows.map(r => [
-      r.pid,
-      r.name,
-      r.department || '',
-      r.workDays,
-      r.hours,
-      r.late,
-      ...dayNumbers.map(d => (r.days[d] ? r.days[d].join(' - ') : ''))
-    ]);
-    downloadCsv(`bang_tong_hop_cong_${selectedMonth}.csv`, headers, dataRows);
-    showToast(`Đã xuất Mẫu 3: Bảng công tổng hợp tháng ${selectedMonth}`, 'success');
+    const dataRows = matrixReportRows.map(r => {
+      const emp = employees.find(e => e.id === r.pid);
+      return [
+        r.pid,
+        emp?.code || r.pid,
+        r.name,
+        r.department || emp?.department || '—',
+        emp?.position || '—',
+        r.workDays,
+        r.hours,
+        r.late,
+        ...dayNumbers.map(d => (r.days[d] ? r.days[d].join(' - ') : ''))
+      ];
+    });
+    const filename = `bang_cong_tong_hop_${selectedMonth}${deptTag}.csv`;
+    downloadCsv(filename, headers, dataRows);
+    showToast(`Đã xuất dữ liệu bảng công tổng hợp tháng ${selectedMonth} ra tệp CSV để lưu trữ`, 'success');
   };
+
+  // 2. Export complete monthly archive CSV for administrative record keeping
+  const handleExportMonthlyArchiveCsv = () => {
+    const deptTag = selectedDept !== 'all' ? `_${selectedDept.replace(/\s+/g, '_')}` : '';
+    const nowTag = new Date().toISOString().slice(0, 10);
+    const headers = [
+      'STT',
+      'Tháng báo cáo',
+      'Mã nhân viên (ID)',
+      'Mã nhân sự (Code)',
+      'Họ và tên',
+      'Phòng ban',
+      'Chức vụ / Bộ phận',
+      'Số ngày công chuẩn (22 ngày)',
+      'Số ngày đi làm thực tế',
+      'Tổng giờ làm việc (giờ)',
+      'Số lần đi muộn',
+      'Tỷ lệ chuyên cần (%)',
+      ...dayNumbers.map(d => `Ngày ${+d} (Vào - Ra)`)
+    ];
+
+    const dataRows = matrixReportRows.map((r, idx) => {
+      const emp = employees.find(e => e.id === r.pid);
+      const attendanceRate = Math.min(100, Math.round((r.workDays / 22) * 100));
+      return [
+        idx + 1,
+        selectedMonth,
+        r.pid,
+        emp?.code || r.pid,
+        r.name,
+        r.department || emp?.department || 'Chưa phân ban',
+        emp?.position || '—',
+        22,
+        r.workDays,
+        r.hours,
+        r.late,
+        `${attendanceRate}%`,
+        ...dayNumbers.map(d => (r.days[d] ? r.days[d].join(' - ') : 'Nghỉ'))
+      ];
+    });
+
+    const filename = `luu_tru_bang_cong_thang_${selectedMonth}${deptTag}_${nowTag}.csv`;
+    downloadCsv(filename, headers, dataRows);
+    showToast(`Đã xuất tệp CSV lưu trữ bảng công tháng ${selectedMonth} (${dataRows.length} nhân sự) thành công!`, 'success');
+  };
+
+  // Backward compatibility alias
+  const handleExportCsv = handleExportCurrentCsv;
 
   const handlePrint = () => {
     window.print();
@@ -317,12 +386,25 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
             <span className="hidden sm:inline">In báo cáo</span>
           </button>
 
+          {/* Primary Button: Xuất CSV Bảng Công Hiện Tại */}
           <button
-            onClick={handleExportCsv}
-            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-md shadow-emerald-500/20 transition"
+            onClick={handleExportCurrentCsv}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-md shadow-emerald-500/20 transition"
+            title="Xuất dữ liệu bảng công hiện tại ra tệp CSV để lưu trữ"
           >
             <Download className="w-4 h-4" />
-            Xuất Excel (CSV)
+            <span>Xuất CSV Bảng Công</span>
+          </button>
+
+          {/* Secondary Button: Lưu Trữ Tháng (CSV) */}
+          <button
+            onClick={handleExportMonthlyArchiveCsv}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold shadow-md shadow-blue-500/20 transition"
+            title={`Lưu trữ toàn bộ dữ liệu chấm công tháng ${selectedMonth} ra tệp CSV`}
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span className="hidden sm:inline">Lưu Trữ Tháng ({selectedMonth})</span>
+            <span className="sm:hidden">Lưu Trữ CSV</span>
           </button>
         </div>
       </div>
@@ -438,8 +520,8 @@ export const MonthlyReportView: React.FC<MonthlyReportViewProps> = ({
             </div>
           )}
 
-          {/* Department filter (for Mẫu 2 & 3) */}
-          {activeTemplate !== 'device_detail' && departments.length > 0 && (
+          {/* Department filter */}
+          {departments.length > 0 && (
             <div className="flex items-center gap-1.5">
               <Building2 className="w-3.5 h-3.5 text-slate-400" />
               <select
