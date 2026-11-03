@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { HachihiMachine, Employee, AttendanceLog, ConnectionSettings } from '../types/hachihi';
 import { HachihiDataService } from '../services/hachihiService';
+import { AttendanceTrendLineChart } from './AttendanceTrendLineChart';
 
 interface KPIDashboardProps {
   machines?: HachihiMachine[];
@@ -260,7 +261,11 @@ export const KPIDashboard: React.FC<KPIDashboardProps> = ({
               Hôm nay
             </button>
             <button
-              onClick={() => setTimeRange('week')}
+              onClick={() => {
+                setTimeRange('week');
+                const el = document.getElementById('seven-day-trend-chart');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }}
               className={`px-3 py-1.5 rounded-lg transition ${
                 timeRange === 'week' ? 'bg-emerald-500 text-slate-950 shadow' : 'text-slate-300 hover:text-white'
               }`}
@@ -416,7 +421,18 @@ export const KPIDashboard: React.FC<KPIDashboardProps> = ({
         </div>
       </div>
 
-      {/* 3. Recharts Visual Section: Donut + Hourly Area Chart */}
+      {/* 3. Recharts 7-Day Attendance Trend (Line Chart) */}
+      <div id="seven-day-trend-chart">
+        <AttendanceTrendLineChart
+          logs={logs}
+          employees={employees}
+          workStartTime={settings.workStartTime}
+          onRefresh={fetchLatestStats}
+          className={timeRange === 'week' ? 'ring-2 ring-emerald-500/50 shadow-emerald-950/10' : ''}
+        />
+      </div>
+
+      {/* 4. Recharts Visual Section: Donut + Hourly Area Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart A: Workforce Presence Donut */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">

@@ -84,10 +84,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
     setIsSyncing(true);
     try {
-      const res = await HachihiDataService.syncLogsFromMachine(todayStr, todayStr);
+      // Sync last 7 days to fully update the 7-day Line Chart and today's metrics
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      const fromStr = d.toISOString().slice(0, 10);
+      const res = await HachihiDataService.syncLogsFromMachine(fromStr, todayStr);
       if (res && res.ok) {
         onRefreshData();
-        showToast(res.message || `Đã đồng bộ ${res.added} lượt chấm công từ máy`, 'success');
+        showToast(res.message || `Đã đồng bộ ${res.added} lượt chấm công gần nhất từ máy`, 'success');
       } else {
         showToast(res?.error || 'Lỗi khi đồng bộ từ máy', 'error');
       }
