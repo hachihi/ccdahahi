@@ -18,15 +18,13 @@ import {
   Sparkles,
   DownloadCloud
 } from 'lucide-react';
-import { HachihiMachine, Employee, AttendanceLog, ConnectionSettings } from '../types/hachihi';
+import { DahahiMachine, Employee, AttendanceLog, ConnectionSettings } from '../types/dahahi';
 import { useAuth } from '../context/AuthContext';
-import { HachihiDataService } from '../services/hachihiService';
+import { DahahiDataService } from '../services/dahahiService';
 import { ActiveTab } from './Header';
-import { KPIDashboard } from './KPIDashboard';
-
 
 interface DashboardViewProps {
-  machines: HachihiMachine[];
+  machines: DahahiMachine[];
   employees: Employee[];
   logs: AttendanceLog[];
   settings: ConnectionSettings;
@@ -84,14 +82,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
     setIsSyncing(true);
     try {
-      // Sync last 7 days to fully update the 7-day Line Chart and today's metrics
-      const d = new Date();
-      d.setDate(d.getDate() - 7);
-      const fromStr = d.toISOString().slice(0, 10);
-      const res = await HachihiDataService.syncLogsFromMachine(fromStr, todayStr);
+      const res = await DahahiDataService.syncLogsFromMachine(todayStr, todayStr);
       if (res && res.ok) {
         onRefreshData();
-        showToast(res.message || `Đã đồng bộ ${res.added} lượt chấm công gần nhất từ máy`, 'success');
+        showToast(res.message || `Đã đồng bộ ${res.added} lượt chấm công từ máy`, 'success');
       } else {
         showToast(res?.error || 'Lỗi khi đồng bộ từ máy', 'error');
       }
@@ -109,7 +103,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-xs font-medium mb-3">
             <Wifi className="w-3.5 h-3.5 text-emerald-300" />
-            Hệ thống Quản lý Chấm công Khuôn mặt Hachihi AI
+            Hệ thống Quản lý Chấm công Khuôn mặt Dahahi AI
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             Quản trị & Giám sát Chấm công Trực tuyến
@@ -175,7 +169,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 Chưa có máy chấm công nào được kết nối
               </h4>
               <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
-                Vui lòng nhập Website Hachihi, Api Secret Key và Serial máy để bắt đầu đồng bộ dữ liệu thực tế.
+                Vui lòng nhập Website Dahahi, Api Secret Key và Serial máy để bắt đầu đồng bộ dữ liệu thực tế.
               </p>
             </div>
           </div>
@@ -188,15 +182,132 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
-      {/* Recharts Visual KPI Dashboard */}
-      <KPIDashboard
-        machines={machines}
-        employees={employees}
-        logs={logs}
-        settings={settings}
-        onRefresh={onRefreshData}
-      />
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] gap-3 sm:gap-4">
+        {/* Card 1: Machines */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Máy chấm công
+            </span>
+            <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+              <HardDrive className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              {machines.length}
+            </span>
+            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center">
+              <CheckCircle2 className="w-3.5 h-3.5 mr-0.5 inline" />
+              {machines.length > 0 ? `${machines.length} Online` : 'Chưa có máy'}
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 truncate">
+            {machines.map(m => m.MachineBoxId).join(', ') || 'Chưa kết nối máy nào'}
+          </p>
+          <button
+            onClick={() => setActiveTab('devices')}
+            className="mt-3 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+          >
+            Quản lý thiết bị <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
 
+        {/* Card 2: Employees */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Tổng nhân viên
+            </span>
+            <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+              <Users className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              {employees.length}
+            </span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              hồ sơ
+            </span>
+          </div>
+          <div className="mt-2 flex items-center gap-3 text-xs">
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+              <UserCheck className="w-3.5 h-3.5" />
+              {registeredFaceCount} có Face ID
+            </span>
+            <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+              <UserX className="w-3.5 h-3.5" />
+              {noFaceCount} chưa ảnh
+            </span>
+          </div>
+          <button
+            onClick={() => setActiveTab('employees')}
+            className="mt-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+          >
+            Danh sách nhân viên <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Card 3: Today Attendance */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Có mặt hôm nay
+            </span>
+            <div className="p-2.5 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400">
+              <Calendar className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              {checkedInCount}
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              / {employees.length} nhân sự
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            Tổng cộng: <strong className="text-slate-800 dark:text-slate-200">{todayLogs.length}</strong> lượt quẹt mặt
+          </p>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className="mt-3 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1"
+          >
+            Xem lịch sử hôm nay <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Card 4: Punctuality */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Đúng giờ / Đi muộn
+            </span>
+            <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
+              <Clock className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
+              {onTimeToday}
+            </span>
+            <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">
+              ({lateToday} muộn)
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            Mốc quy định: <strong className="text-slate-700 dark:text-slate-300">{settings.workStartTime || '08:30'}</strong>
+          </p>
+          <button
+            onClick={() => setActiveTab('report')}
+            className="mt-3 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+          >
+            Bảng công chi tiết <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
 
       {/* Main Row: Recent Logs + Devices overview */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -209,7 +320,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 Lượt chấm công mới nhất
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Ghi nhận theo thời gian thực từ thiết bị Hachihi
+                Ghi nhận theo thời gian thực từ thiết bị Dahahi
               </p>
             </div>
             <button
@@ -351,7 +462,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
               <div className="flex justify-between">
-                <span>Website Hachihi:</span>
+                <span>Website Dahahi:</span>
                 <span className="font-mono text-slate-700 dark:text-slate-300 truncate max-w-[170px]">
                   {settings.host || 'Chưa cấu hình'}
                 </span>
@@ -380,12 +491,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-slate-900 dark:to-slate-800 rounded-2xl p-5 border border-emerald-200/80 dark:border-slate-800">
             <h4 className="font-bold text-xs uppercase text-emerald-800 dark:text-emerald-400 tracking-wider flex items-center gap-1.5">
               <Camera className="w-4 h-4" />
-              Nạp & Tải ảnh Face ID chuẩn máy Hachihi
+              Nạp & Tải ảnh Face ID chuẩn máy Dahahi
             </h4>
             <ul className="mt-3 text-xs text-slate-600 dark:text-slate-300 space-y-2">
               <li className="flex items-start gap-1.5">
                 <span className="text-emerald-500 font-bold">•</span>
-                <span>Tự động nén ảnh về &le; 480px JPEG để bảo đảm tương thích phần cứng máy Hachihi.</span>
+                <span>Tự động nén ảnh về &le; 480px JPEG để bảo đảm tương thích phần cứng máy Dahahi.</span>
               </li>
               <li className="flex items-start gap-1.5">
                 <span className="text-emerald-500 font-bold">•</span>

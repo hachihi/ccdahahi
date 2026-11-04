@@ -27,12 +27,12 @@ import {
   Layers,
   Edit3
 } from 'lucide-react';
-import { HachihiMachine, ConnectionSettings, AutoSyncConfig, SavedDeviceProfile } from '../types/hachihi';
+import { DahahiMachine, ConnectionSettings, AutoSyncConfig, SavedDeviceProfile } from '../types/dahahi';
 import { useAuth } from '../context/AuthContext';
-import { HachihiDataService } from '../services/hachihiService';
+import { DahahiDataService } from '../services/dahahiService';
 
 interface DeviceManagementViewProps {
-  machines: HachihiMachine[];
+  machines: DahahiMachine[];
   settings: ConnectionSettings;
   onRefreshData: () => void;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
@@ -49,7 +49,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   const canPerformDanger = hasPermission('danger_actions');
 
   // Connection form state
-  const [deviceType] = useState('HACHIHI FACE AI');
+  const [deviceType] = useState('DAHAHI FACE AI');
   const [deviceName, setDeviceName] = useState('');
   const [hostUrl, setHostUrl] = useState(settings.host || '');
   const [secretKey, setSecretKey] = useState(settings.secretKey || '');
@@ -78,7 +78,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   // Load saved device profiles from service
   const loadProfiles = useCallback(async () => {
     try {
-      const list = await HachihiDataService.getDeviceProfiles();
+      const list = await DahahiDataService.getDeviceProfiles();
       setSavedProfiles(list);
     } catch (e) {
       console.warn('Error loading device profiles:', e);
@@ -120,9 +120,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
       setHostUrl(prof.host);
       setMachineSerial(prof.serial);
       setDeviceName(prof.name);
-      if (prof.secretKey) {
-        setSecretKey(prof.secretKey);
-      }
+      setSecretKey(''); // khóa bí mật không bao giờ gửi về trình duyệt; để trống = dùng khóa đã lưu
       if (prof.appKey) {
         setAppKey(prof.appKey);
       }
@@ -133,7 +131,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   // Save machine profile to list without necessarily connecting right away
   const handleSaveOnlyProfile = async () => {
     if (!hostUrl.trim()) {
-      showToast('Vui lòng nhập Website / Domain của Hachihi', 'error');
+      showToast('Vui lòng nhập Website / Domain của Dahahi', 'error');
       return;
     }
     if (!machineSerial.trim()) {
@@ -148,7 +146,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
     }
 
     try {
-      const res = await HachihiDataService.saveDeviceProfile({
+      const res = await DahahiDataService.saveDeviceProfile({
         name: (deviceName.trim() || `Máy ${machineSerial.trim()}`),
         host: cleanHost,
         secretKey: secretKey.trim(),
@@ -174,7 +172,12 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   const handleConnectDevice = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hostUrl.trim()) {
-      showToast('Vui lòng nhập Website / Domain của Hachihi (ví dụ: https://congty.hachihi.vn)', 'error');
+      showToast('Vui lòng nhập Website / Domain của Dahahi (ví dụ: https://congty.dahahi.vn)', 'error');
+      return;
+    }
+    const selectedProfile = savedProfiles.find(p => p.id === selectedQuickProfileId);
+    if (!secretKey.trim() && selectedProfile?.hasSecret) {
+      await handleConnectFromProfile(selectedProfile); // dùng khóa đã lưu trên máy chủ
       return;
     }
     if (!secretKey.trim()) {
@@ -193,7 +196,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
     }
 
     try {
-      const res = await HachihiDataService.connectDevice(
+      const res = await DahahiDataService.connectDevice(
         cleanHost,
         secretKey.trim(),
         machineSerial.trim(),
@@ -204,7 +207,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
       if (res.ok) {
         // If saveToProfileList is true, save parameters to saved list
         if (saveToProfileList) {
-          await HachihiDataService.saveDeviceProfile({
+          await DahahiDataService.saveDeviceProfile({
             name: (deviceName.trim() || `Máy ${machineSerial.trim()}`),
             host: cleanHost,
             secretKey: secretKey.trim(),
@@ -215,7 +218,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
         }
 
         onRefreshData();
-        showToast(res.message || 'Kết nối máy chấm công Hachihi thành công!', 'success');
+        showToast(res.message || 'Kết nối máy chấm công Dahahi thành công!', 'success');
       } else {
         showToast(res.error || 'Kết nối thất bại. Vui lòng kiểm tra lại Domain, Key và Serial.', 'error');
       }
@@ -230,7 +233,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   const handleConnectFromProfile = async (prof: SavedDeviceProfile) => {
     setConnectingProfileId(prof.id);
     try {
-      const res = await HachihiDataService.connectSavedProfile(prof.id);
+      const res = await DahahiDataService.connectSavedProfile(prof.id);
       if (res.ok) {
         onRefreshData();
         await loadProfiles();
@@ -252,7 +255,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
     }
     setDisconnectingBoxId(prof.serial);
     try {
-      const res = await HachihiDataService.disconnectSavedProfile(prof.id);
+      const res = await DahahiDataService.disconnectSavedProfile(prof.id);
       if (res.ok) {
         onRefreshData();
         await loadProfiles();
@@ -270,7 +273,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
     if (!confirm(`Xóa cấu hình máy "${prof.name}" (${prof.serial}) khỏi danh sách lưu?`)) {
       return;
     }
-    await HachihiDataService.deleteDeviceProfile(prof.id);
+    await DahahiDataService.deleteDeviceProfile(prof.id);
     await loadProfiles();
     showToast(`Đã xóa máy "${prof.name}" khỏi danh sách cấu hình đã lưu`, 'info');
   };
@@ -283,7 +286,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
     }
     setDisconnectingBoxId(boxId);
     try {
-      const ok = await HachihiDataService.disconnectMachine(boxId);
+      const ok = await DahahiDataService.disconnectMachine(boxId);
       if (ok) {
         onRefreshData();
         await loadProfiles();
@@ -299,7 +302,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   // Test / Ping connection
   const handleTestConnection = async () => {
     if (!hostUrl.trim()) {
-      showToast('Vui lòng nhập Domain Hachihi trước khi kiểm tra', 'error');
+      showToast('Vui lòng nhập Domain Dahahi trước khi kiểm tra', 'error');
       return;
     }
     setIsTesting(true);
@@ -309,7 +312,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
     }
 
     try {
-      const res = await HachihiDataService.testConnection(cleanHost, secretKey.trim(), appKey.trim());
+      const res = await DahahiDataService.testConnection(cleanHost, secretKey.trim(), appKey.trim());
       if (res.ok) {
         const foundCount = res.machines?.length || 0;
         showToast(
@@ -317,7 +320,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
           'success'
         );
       } else {
-        showToast(res.error || 'Không kết nối được tới máy chủ Hachihi', 'error');
+        showToast(res.error || 'Không kết nối được tới máy chủ Dahahi', 'error');
       }
     } catch (err: any) {
       showToast('Lỗi kiểm tra: ' + err.message, 'error');
@@ -330,7 +333,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   const handleSaveAutoSync = async () => {
     setIsSavingAutoSync(true);
     try {
-      const res = await HachihiDataService.updateAutoSync({
+      const res = await DahahiDataService.updateAutoSync({
         enabled: autoSyncEnabled,
         intervalMinutes: Number(autoSyncInterval),
         syncLogs: autoSyncLogs,
@@ -354,7 +357,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
   const handleTriggerAutoSyncNow = async () => {
     setIsTriggeringSync(true);
     try {
-      const res = await HachihiDataService.triggerAutoSync();
+      const res = await DahahiDataService.triggerAutoSync();
       if (res && res.ok) {
         if (res.autoSync) setAutoSyncStatus(res.autoSync);
         onRefreshData();
@@ -390,7 +393,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
     setIsSyncingFaces(true);
     setSyncProgress('Đang gửi lệnh sao chép...');
     try {
-      const res = await HachihiDataService.syncFaces(syncFrom, syncTo);
+      const res = await DahahiDataService.syncFaces(syncFrom, syncTo);
       if (res && res.ok) {
         showToast(`Đã gửi lệnh sao chép toàn bộ khuôn mặt sang máy ${mTo} thành công!`, 'success');
       } else {
@@ -414,7 +417,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
 
     setIsClearing(true);
     try {
-      const res = await HachihiDataService.clearMachine(clearTargetBox);
+      const res = await DahahiDataService.clearMachine(clearTargetBox);
       if (res && res.ok) {
         onRefreshData();
         showToast(`Đã xóa toàn bộ khuôn mặt trên máy ${clearTargetBox}. Thiết bị đang khởi động lại.`, 'success');
@@ -449,7 +452,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white">
-                    Kết nối máy chấm công Hachihi
+                    Kết nối máy chấm công Dahahi
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Nhập thông số hoặc chọn từ danh sách đã lưu
@@ -492,18 +495,18 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
             <form onSubmit={handleConnectDevice} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  1. Website / Domain của Hachihi *
+                  1. Website / Domain của Dahahi *
                 </label>
                 <input
                   type="text"
                   required
                   value={hostUrl}
                   onChange={e => setHostUrl(e.target.value)}
-                  placeholder="https://ten_mien.hachihi.vn"
+                  placeholder="https://ten_mien.dahahi.vn"
                   className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-emerald-500"
                 />
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  Địa chỉ web do Hachihi cấp riêng cho đơn vị của bạn.
+                  Địa chỉ web do Dahahi cấp riêng cho đơn vị của bạn.
                 </p>
               </div>
 
@@ -513,14 +516,18 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
                 </label>
                 <input
                   type="password"
-                  required
+                  required={!savedProfiles.find(p => p.id === selectedQuickProfileId)?.hasSecret}
                   value={secretKey}
                   onChange={e => setSecretKey(e.target.value)}
-                  placeholder="Dán Api Secret Key"
+                  placeholder={
+                    savedProfiles.find(p => p.id === selectedQuickProfileId)?.hasSecret
+                      ? 'Đã lưu an toàn trên máy chủ, để trống để dùng khóa này'
+                      : 'Dán Api Secret Key'
+                  }
                   className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-emerald-500"
                 />
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  Lấy tại: Web Hachihi &rarr; Cài đặt &rarr; Tích hợp API &rarr; "Api Secret Key".
+                  Lấy tại: Web Dahahi &rarr; Cài đặt &rarr; Tích hợp API &rarr; "Api Secret Key".
                 </p>
               </div>
 
@@ -537,7 +544,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
                   className="w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:ring-2 focus:ring-emerald-500"
                 />
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  Lấy tại: Web Hachihi &rarr; Thiết bị &rarr; Cột "Tên thiết bị", dãy số dòng dưới.
+                  Lấy tại: Web Dahahi &rarr; Thiết bị &rarr; Cột "Tên thiết bị", dãy số dòng dưới.
                 </p>
               </div>
 
@@ -648,7 +655,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
                           Chưa kết nối máy nào
                         </p>
                         <p className="text-[11px] text-slate-400 mt-1">
-                          Điền Website Hachihi, Api Secret Key và Serial máy ở khung bên trái hoặc chọn từ danh sách đã lưu rồi bấm "Kết nối máy".
+                          Điền Website Dahahi, Api Secret Key và Serial máy ở khung bên trái hoặc chọn từ danh sách đã lưu rồi bấm "Kết nối máy".
                         </p>
                       </td>
                     </tr>
@@ -717,7 +724,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
               Sao chép khuôn mặt giữa các máy (SyncFace)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Đồng bộ toàn bộ dữ liệu khuôn mặt đã đăng ký từ máy nguồn sang máy đích theo chuẩn API Hachihi.
+              Đồng bộ toàn bộ dữ liệu khuôn mặt đã đăng ký từ máy nguồn sang máy đích theo chuẩn API Dahahi.
             </p>
 
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -996,7 +1003,7 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
                   Bật tự động đồng bộ ngầm định kỳ
                 </label>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Tự động gọi API máy Hachihi theo lịch trình nền để cập nhật chấm công mới
+                  Tự động gọi API máy Dahahi theo lịch trình nền để cập nhật chấm công mới
                 </span>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -1130,8 +1137,8 @@ export const DeviceManagementView: React.FC<DeviceManagementViewProps> = ({
               Cấu hình Nhận chấm công tức thời (CallBack & HeartBeat Webhook)
             </h4>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Để máy chấm công Hachihi tự động đẩy dữ liệu quẹt mặt tức thì về ứng dụng mà không cần bấm nút đồng bộ thủ công,
-              vui lòng truy cập web Hachihi &rarr; <strong>Cài đặt &rarr; Tích hợp API</strong> và điền 2 đường dẫn sau:
+              Để máy chấm công Dahahi tự động đẩy dữ liệu quẹt mặt tức thì về ứng dụng mà không cần bấm nút đồng bộ thủ công,
+              vui lòng truy cập web Dahahi &rarr; <strong>Cài đặt &rarr; Tích hợp API</strong> và điền 2 đường dẫn sau:
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Calendar,
   Clock,
@@ -10,20 +10,15 @@ import {
   CheckCircle2,
   AlertTriangle,
   Flame,
-  FileSpreadsheet,
-  Building2,
-  Briefcase,
-  Users,
-  RotateCcw,
-  X
+  FileSpreadsheet
 } from 'lucide-react';
-import { AttendanceLog, HachihiMachine, Employee, ConnectionSettings } from '../types/hachihi';
+import { AttendanceLog, DahahiMachine, Employee, ConnectionSettings } from '../types/dahahi';
 import { useAuth } from '../context/AuthContext';
-import { HachihiDataService, downloadCsv, toHachihiTimeStr, fromHachihiTimeStr } from '../services/hachihiService';
+import { DahahiDataService, downloadCsv, toDahahiTimeStr, fromDahahiTimeStr } from '../services/dahahiService';
 
 interface AttendanceLogsViewProps {
   logs: AttendanceLog[];
-  machines: HachihiMachine[];
+  machines: DahahiMachine[];
   employees: Employee[];
   settings: ConnectionSettings;
   onRefreshData: () => void;
@@ -45,84 +40,21 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
   const [fromDate, setFromDate] = useState(startOfMonth);
   const [toDate, setToDate] = useState(today);
   const [selectedMachine, setSelectedMachine] = useState<string>('all');
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
-  const [selectedPosition, setSelectedPosition] = useState<string>('all');
   const [searchPid, setSearchPid] = useState<string>('');
   const [isSyncing, setIsSyncing] = useState(false);
 
   const canSync = hasPermission('sync_data');
 
-  // Map employees for fast O(1) lookup
-  const empMap = useMemo(() => {
-    const map = new Map<string, Employee>();
-    employees.forEach(e => map.set(e.id, e));
-    return map;
-  }, [employees]);
+  // Filter logs
+  const filteredLogs = logs.filter(l => {
+    const logDate = l.time.slice(0, 10);
+    const matchDate = (!fromDate || logDate >= fromDate) && (!toDate || logDate <= toDate);
+    const matchMachine = selectedMachine === 'all' || l.m === selectedMachine;
+    const matchPid = !searchPid.trim() || l.pid.includes(searchPid.trim()) || l.name.toLowerCase().includes(searchPid.toLowerCase().trim());
+    return matchDate && matchMachine && matchPid;
+  });
 
-  // Unique departments list
-  const departments = useMemo(() => {
-    const set = new Set<string>();
-    employees.forEach(e => {
-      if (e.department?.trim()) set.add(e.department.trim());
-    });
-    return Array.from(set).sort();
-  }, [employees]);
-
-  // Unique positions / divisions list
-  const positions = useMemo(() => {
-    const set = new Set<string>();
-    employees.forEach(e => {
-      if (e.position?.trim()) set.add(e.position.trim());
-    });
-    return Array.from(set).sort();
-  }, [employees]);
-
-  // Filter logs with department and position matching
-  const filteredLogs = useMemo(() => {
-    return logs.filter(l => {
-      const logDate = l.time.slice(0, 10);
-      const matchDate = (!fromDate || logDate >= fromDate) && (!toDate || logDate <= toDate);
-      const matchMachine = selectedMachine === 'all' || l.m === selectedMachine;
-
-      const emp = empMap.get(l.pid);
-      const empDept = emp?.department?.trim() || '';
-      const empPos = emp?.position?.trim() || '';
-
-      const matchDept = selectedDepartment === 'all' || empDept === selectedDepartment;
-      const matchPos = selectedPosition === 'all' || empPos === selectedPosition;
-
-      const q = searchPid.toLowerCase().trim();
-      const matchPid =
-        !q ||
-        l.pid.toLowerCase().includes(q) ||
-        l.name.toLowerCase().includes(q) ||
-        (emp?.code && emp.code.toLowerCase().includes(q)) ||
-        empDept.toLowerCase().includes(q) ||
-        empPos.toLowerCase().includes(q);
-
-      return matchDate && matchMachine && matchDept && matchPos && matchPid;
-    });
-  }, [logs, fromDate, toDate, selectedMachine, selectedDepartment, selectedPosition, searchPid, empMap]);
-
-  // Check if any filter is active
-  const hasActiveFilters =
-    selectedMachine !== 'all' ||
-    selectedDepartment !== 'all' ||
-    selectedPosition !== 'all' ||
-    Boolean(searchPid.trim()) ||
-    fromDate !== startOfMonth ||
-    toDate !== today;
-
-  const handleResetFilters = () => {
-    setFromDate(startOfMonth);
-    setToDate(today);
-    setSelectedMachine('all');
-    setSelectedDepartment('all');
-    setSelectedPosition('all');
-    setSearchPid('');
-  };
-
-  // Sync logs from Hachihi machine via /api/facereg/checkinhis
+  // Sync logs from Dahahi machine via /api/facereg/checkinhis
   const handleSyncFromDevice = async () => {
     const targetMachines = selectedMachine === 'all'
       ? machines.map(m => m.MachineBoxId)
@@ -135,7 +67,7 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
 
     setIsSyncing(true);
     try {
-      const res = await HachihiDataService.syncLogsFromMachine(
+      const res = await DahahiDataService.syncLogsFromMachine(
         fromDate,
         toDate,
         selectedMachine !== 'all' ? selectedMachine : undefined
@@ -154,32 +86,25 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
     }
   };
 
-  // Export CSV with Department & Position
+  // Export CSV
   const handleExportCsv = () => {
     const headers = [
       'Thời gian',
-      'Mã nhân viên (ID)',
-      'Mã nhân sự (Code)',
+      'Mã nhân viên',
       'Họ và tên',
-      'Phòng ban',
-      'Bộ phận / Chức vụ',
       'Thiết bị chấm công',
       'Mã thiết bị (MachineBoxId)',
       'Thân nhiệt (°C)',
       'Trạng thái'
     ];
     const rows = filteredLogs.map(l => {
-      const emp = empMap.get(l.pid);
       const mObj = machines.find(m => m.MachineBoxId === l.m);
       const timeOnly = l.time.slice(11, 16);
-      const isLate = timeOnly > (settings.workStartTime || '08:30') && timeOnly < '12:00';
+      const isLate = timeOnly > settings.workStartTime && timeOnly < '12:00';
       return [
         l.time,
         l.pid,
-        emp?.code || l.pid,
         l.name,
-        emp?.department || 'Chưa phân ban',
-        emp?.position || '—',
         mObj?.MachineName || l.m,
         l.m,
         l.temp || '',
@@ -187,217 +112,94 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
       ];
     });
 
-    const deptTag = selectedDepartment !== 'all' ? `_${selectedDepartment.replace(/\s+/g, '_')}` : '';
-    downloadCsv(`lich_su_cham_cong${deptTag}_${fromDate}_${toDate}.csv`, headers, rows);
-    showToast(`Đã xuất ${filteredLogs.length} bản ghi chấm công ra tệp CSV`, 'success');
+    downloadCsv(`lich_su_cham_cong_${fromDate}_${toDate}.csv`, headers, rows);
+    showToast(`Đã xuất ${filteredLogs.length} bản ghi ra tệp CSV`, 'success');
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Filters Bar */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* From Date */}
-            <div className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="text-xs text-slate-500 font-medium">Từ:</span>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={e => setFromDate(e.target.value)}
-                className="px-3 py-1.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            {/* To Date */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-500 font-medium">Đến:</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={e => setToDate(e.target.value)}
-                className="px-3 py-1.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            {/* Machine */}
-            <div className="flex items-center gap-1.5">
-              <HardDrive className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <select
-                value={selectedMachine}
-                onChange={e => setSelectedMachine(e.target.value)}
-                className="px-3 py-1.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="all">Tất cả máy chấm công ({machines.length})</option>
-                {machines.map(m => (
-                  <option key={m.MachineBoxId} value={m.MachineBoxId}>
-                    {m.MachineName} ({m.MachineBoxId})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Department Filter (Phòng ban) */}
-            <div className="flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <select
-                value={selectedDepartment}
-                onChange={e => setSelectedDepartment(e.target.value)}
-                className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm border transition focus:ring-2 focus:ring-emerald-500 font-medium ${
-                  selectedDepartment !== 'all'
-                    ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-400 text-emerald-800 dark:text-emerald-200 font-bold'
-                    : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white'
-                }`}
-                title="Lọc dữ liệu chấm công theo Phòng ban"
-              >
-                <option value="all">Tất cả phòng ban ({departments.length})</option>
-                {departments.map(d => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Position / Division Filter (Bộ phận / Chức vụ) */}
-            <div className="flex items-center gap-1.5">
-              <Briefcase className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-              <select
-                value={selectedPosition}
-                onChange={e => setSelectedPosition(e.target.value)}
-                className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm border transition focus:ring-2 focus:ring-emerald-500 font-medium ${
-                  selectedPosition !== 'all'
-                    ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-400 text-blue-800 dark:text-blue-200 font-bold'
-                    : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white'
-                }`}
-                title="Lọc dữ liệu chấm công theo Bộ phận hoặc Chức vụ"
-              >
-                <option value="all">Tất cả chức vụ / bộ phận ({positions.length})</option>
-                {positions.map(p => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Search Person */}
-            <div className="relative min-w-[170px]">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchPid}
-                onChange={e => setSearchPid(e.target.value)}
-                placeholder="Mã, tên, phòng ban..."
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            {/* Reset Filters */}
-            {hasActiveFilters && (
-              <button
-                onClick={handleResetFilters}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 transition"
-                title="Đặt lại tất cả bộ lọc"
-              >
-                <RotateCcw className="w-3 h-3" />
-                Xóa lọc
-              </button>
-            )}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* From Date */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 font-medium">Từ ngày:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={e => setFromDate(e.target.value)}
+              className="px-3 py-1.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+            />
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 self-start lg:self-auto shrink-0">
-            {settings.autoSync?.enabled && (
-              <span
-                className="hidden xl:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80"
-                title={settings.autoSync.lastSyncMessage || 'Đang tự đồng bộ định kỳ'}
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Tự đồng bộ: {settings.autoSync.intervalMinutes}p/lần
-              </span>
-            )}
+          {/* To Date */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 font-medium">Đến ngày:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={e => setToDate(e.target.value)}
+              className="px-3 py-1.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
 
-            {canSync && (
-              <button
-                onClick={handleSyncFromDevice}
-                disabled={isSyncing}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-md shadow-emerald-500/20 disabled:opacity-50 transition"
-              >
-                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ từ thiết bị'}
-              </button>
-            )}
+          {/* Machine */}
+          <select
+            value={selectedMachine}
+            onChange={e => setSelectedMachine(e.target.value)}
+            className="px-3 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="all">Tất cả máy chấm công</option>
+            {machines.map(m => (
+              <option key={m.MachineBoxId} value={m.MachineBoxId}>
+                {m.MachineName} ({m.MachineBoxId})
+              </option>
+            ))}
+          </select>
 
-            {canSync && (
-              <button
-                onClick={async () => {
-                  const res = await HachihiDataService.deduplicateAttendance();
-                  if (res.ok) {
-                    onRefreshData();
-                    showToast(res.message || `Đã loại bỏ ${res.removedCount} bản ghi trùng`, 'success');
-                  } else {
-                    showToast(res.error || 'Lỗi khi lọc trùng dữ liệu', 'error');
-                  }
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs sm:text-sm font-semibold transition"
-                title="Loại bỏ các lần chấm lặp lại liên tiếp trong cùng 1 phút"
-              >
-                <Filter className="w-4 h-4" />
-                <span className="hidden sm:inline">Lọc trùng</span>
-              </button>
-            )}
-
-            <button
-              onClick={handleExportCsv}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition"
-              title="Xuất danh sách chấm công lọc hiện tại ra tệp CSV"
-            >
-              <Download className="w-4 h-4 text-slate-500" />
-              <span>Xuất CSV</span>
-            </button>
+          {/* Search Person */}
+          <div className="relative min-w-[160px]">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchPid}
+              onChange={e => setSearchPid(e.target.value)}
+              placeholder="Mã hoặc tên NV..."
+              className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+            />
           </div>
         </div>
 
-        {/* Active Filters / Result Summary Bar */}
-        <div className="flex flex-wrap items-center justify-between text-xs pt-2 border-t border-slate-100 dark:border-slate-800/80 text-slate-500 gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span>
-              Tìm thấy <strong className="text-slate-900 dark:text-white font-bold">{filteredLogs.length}</strong> / {logs.length} lượt chấm công
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          {settings.autoSync?.enabled && (
+            <span
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80"
+              title={settings.autoSync.lastSyncMessage || 'Đang tự đồng bộ định kỳ'}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Tự đồng bộ: {settings.autoSync.intervalMinutes}p/lần
             </span>
+          )}
 
-            {selectedDepartment !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-medium">
-                Phòng ban: {selectedDepartment}
-                <button onClick={() => setSelectedDepartment('all')} className="hover:text-emerald-950">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
+          {canSync && (
+            <button
+              onClick={handleSyncFromDevice}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-md shadow-emerald-500/20 disabled:opacity-50 transition"
+            >
+              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ từ thiết bị'}
+            </button>
+          )}
 
-            {selectedPosition !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-medium">
-                Bộ phận: {selectedPosition}
-                <button onClick={() => setSelectedPosition('all')} className="hover:text-blue-950">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-
-            {searchPid.trim() && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-medium">
-                Từ khóa: "{searchPid}"
-                <button onClick={() => setSearchPid('')} className="hover:text-purple-950">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-          </div>
-
-          <div className="text-[11px] text-slate-400">
-            Giờ vào chuẩn: <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{settings.workStartTime || '08:30'}</span>
-          </div>
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium transition"
+          >
+            <Download className="w-4 h-4 text-slate-500" />
+            Xuất CSV
+          </button>
         </div>
       </div>
 
@@ -409,7 +211,6 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
               <tr className="bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400">
                 <th className="py-3.5 pl-6">Thời gian</th>
                 <th className="py-3.5 px-4">Nhân viên</th>
-                <th className="py-3.5 px-4">Phòng ban & Bộ phận</th>
                 <th className="py-3.5 px-4">Thiết bị ghi nhận</th>
                 <th className="py-3.5 px-4">Thân nhiệt</th>
                 <th className="py-3.5 px-4">Độ tin cậy</th>
@@ -419,18 +220,18 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 dark:text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-slate-400 dark:text-slate-500">
                     <Calendar className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                    <p className="font-medium">Không có lượt chấm công nào phù hợp với bộ lọc</p>
-                    <p className="text-xs mt-1">Vui lòng thay đổi khoảng thời gian, phòng ban hoặc bấm "Đồng bộ từ thiết bị".</p>
+                    <p className="font-medium">Không có lượt chấm công nào trong khoảng thời gian này</p>
+                    <p className="text-xs mt-1">Bấm "Đồng bộ từ thiết bị" để tải lịch sử mới nhất về app.</p>
                   </td>
                 </tr>
               ) : (
                 filteredLogs.map(log => {
-                  const emp = empMap.get(log.pid);
+                  const emp = employees.find(e => e.id === log.pid);
                   const machine = machines.find(m => m.MachineBoxId === log.m);
                   const timeOnly = log.time.slice(11, 16);
-                  const isLate = timeOnly > (settings.workStartTime || '08:30') && timeOnly < '12:00';
+                  const isLate = timeOnly > settings.workStartTime && timeOnly < '12:00';
 
                   return (
                     <tr
@@ -461,28 +262,10 @@ export const AttendanceLogsView: React.FC<AttendanceLogsViewProps> = ({
                               {log.name}
                             </p>
                             <p className="text-[11px] text-slate-400 font-mono">
-                              Mã: {emp?.code || log.pid} {emp?.code && emp.code !== log.pid ? `(ID: ${log.pid})` : ''}
+                              Mã: {log.pid}
                             </p>
                           </div>
                         </div>
-                      </td>
-
-                      {/* Department & Division */}
-                      <td className="py-3.5 px-4 text-xs">
-                        {emp?.department ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200/60 dark:border-emerald-800/60">
-                            <Building2 className="w-3 h-3 text-emerald-500" />
-                            {emp.department}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 italic">Chưa phân ban</span>
-                        )}
-                        {emp?.position && (
-                          <span className="block text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1 font-medium">
-                            <Briefcase className="w-3 h-3 text-slate-400" />
-                            {emp.position}
-                          </span>
-                        )}
                       </td>
 
                       {/* Device */}
